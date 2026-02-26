@@ -1,0 +1,30 @@
+name: 每周进化
+
+on:
+  schedule:
+    - cron: '0 16 * * 0'  # 北京时间每周一00:00（UTC周日16:00）
+  workflow_dispatch:
+
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: 设置Python环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: 安装依赖
+        run: pip install requests
+        
+      - name: 执行进化
+        env:
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          COZE_API_TOKEN: ${{ secrets.COZE_API_TOKEN }}
+          COZE_BOT_ID: ${{ secrets.COZE_BOT_ID }}
+          COZE_USER_ID: ${{ secrets.COZE_USER_ID }}
+        run: python main.py evolve
