@@ -9,7 +9,7 @@ from evolution import EvolutionEngine
 from prompt_builder import PromptBuilder
 
 WXAPI_KEY = os.environ.get("WXAPI_KEY")
-BASE_URL = "https://www.wxapi.cn/fbmain/monitor/v3"
+BASE_URL = "https://www.dajiala.com/fbmain/monitor/v3"
 
 # 目标公众号列表
 TARGET_ACCOUNTS = [
@@ -27,7 +27,7 @@ def get_article_list(account_name: str, page: int = 1) -> list:
         "page": page
     }
     try:
-        resp = requests.post(url, json=payload, timeout=15)
+        resp = requests.post(url, json=payload, timeout=15, verify=False)
         data = resp.json()
         if data.get("code") == 200:
             return data.get("data", {}).get("list", [])
@@ -45,7 +45,7 @@ def get_article_detail(article_url: str) -> str:
         "url": article_url
     }
     try:
-        resp = requests.post(url, json=payload, timeout=15)
+        resp = requests.post(url, json=payload, timeout=15, verify=False)
         data = resp.json()
         if data.get("code") == 200:
             return data.get("data", {}).get("content", "")
