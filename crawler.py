@@ -29,6 +29,7 @@ def get_article_list(account_name: str, page: int = 1) -> list:
     try:
         resp = requests.post(url, json=payload, timeout=15, verify=False)
         data = resp.json()
+        print(f"API返回：{data}") 
         if data.get("code") == 200:
             return data.get("data", {}).get("list", [])
         else:
