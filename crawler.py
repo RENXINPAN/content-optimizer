@@ -13,8 +13,8 @@ BASE_URL = "https://www.wxapi.cn/fbmain/monitor/v3"
 
 # 目标公众号列表
 TARGET_ACCOUNTS = [
-    "润总日志",      # 刘润
-    "Spenser",       # S叔Spenser  
+    "刘润",      # 刘润
+    "S叔Spenser",       # S叔Spenser  
     "武志红",        # 武志红
     "半佛仙人",      # 半佛仙人
 ]
@@ -28,7 +28,7 @@ def get_article_list(account_name: str, page: int = 1) -> list:
         "page": page
     }
     try:
-        resp = requests.get(url, params=params, timeout=15)
+        resp = requests.get(url, params=params, timeout=15, verify=False)
         data = resp.json()
         if data.get("code") == 200:
             return data.get("data", {}).get("list", [])
@@ -47,7 +47,7 @@ def get_article_detail(article_url: str) -> str:
         "url": article_url
     }
     try:
-        resp = requests.get(url, params=params, timeout=15)
+        resp = requests.get(url, params=params, timeout=15, verify=False)
         data = resp.json()
         if data.get("code") == 200:
             return data.get("data", {}).get("content", "")
