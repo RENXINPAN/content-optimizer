@@ -64,7 +64,6 @@ def extract_content(detail: dict) -> str:
     return ""
 
 def crawl_account(account_name: str, max_articles: int = 50):
-    db = AirtableClient()
     print(f"\n📡 开始抓取：{account_name}")
     ingestion = ArticleIngestion()
     count = 0
@@ -95,11 +94,7 @@ def crawl_account(account_name: str, max_articles: int = 50):
 
             print(f"  📄 {title[:35]}...")
 
-            # 检查是否已存在
-            existing = db._request("GET", "articles", params={"filterByFormula": f'{{标题}}="{title}"'})
-            if existing.get("records"):
-                print(f"  ⏭️  已存在，跳过")
-                continue
+        
 
             detail = get_article_detail(article_url)
             content = extract_content(detail)
