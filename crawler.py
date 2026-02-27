@@ -30,8 +30,8 @@ def get_article_list(account_name: str, page: int = 1) -> list:
         resp = requests.post(url, json=payload, timeout=15, verify=False)
         data = resp.json()
         print(f"API返回：{data}") 
-        if data.get("code") == 200:
-            return data.get("data", {}).get("list", [])
+        if data.get("code") == 0:
+            return data.get("data", [])
         else:
             print(f"⚠️  {account_name} 获取失败：{data.get('msg', '')}")
             return []
@@ -48,7 +48,7 @@ def get_article_detail(article_url: str) -> str:
     try:
         resp = requests.post(url, json=payload, timeout=15, verify=False)
         data = resp.json()
-        if data.get("code") == 200:
+        if data.get("code") == 0:
             return data.get("data", {}).get("content", "")
         else:
             print(f"⚠️  详情获取失败：{data.get('msg', '')}")
