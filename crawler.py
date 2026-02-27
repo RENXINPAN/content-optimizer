@@ -1,4 +1,7 @@
 # crawler.py - 公众号历史文章抓取 + 自动喂入进化引擎
+from airtable import AirtableClient
+from html.parser import HTMLParser
+import re
 import os
 import time
 import requests
@@ -50,16 +53,18 @@ def get_article_detail(article_url: str) -> dict:
         return {}
 
 def extract_content(detail: dict) -> str:
-    """从详情返回中提取正文，尝试所有可能的字段名"""
-    for key in ["content", "text", "body", "article_content", "html", "content_text", "data"]:
+    for key in ["content", "text", "body", "article_content", "html"]:
         val = detail.get(key, "")
-        if val and isinstance(val, str) and len(val) > 200:
-            return val
-    # 打印所有key帮助调试
+        if val and isinstance(val, str) and len(val) > 100:
+            # 去掉HTML标签提取纯文本
+            clean = re.sub(r'<[^>]+>', '', val)
+            clean = re.sub(r'\s+', ' ', clean).strip()
+            return clean
     print(f"  🔍 详情字段：{list(detail.keys())}")
     return ""
 
 def crawl_account(account_name: str, max_articles: int = 50):
+    db = AirtableClient()
     print(f"\n📡 开始抓取：{account_name}")
     ingestion = ArticleIngestion()
     count = 0
@@ -90,13 +95,19 @@ def crawl_account(account_name: str, max_articles: int = 50):
 
             print(f"  📄 {title[:35]}...")
 
+            # 检查是否已存在
+existing = db._request("GET", "articles", params={"filterByFormula": f'{{标题}}="{title}"'})
+if existing.get("records"):
+    print(f"  ⏭️  已存在，跳过")
+    continue
+
             detail = get_article_detail(article_url)
             content = extract_content(detail)
 
             if not content:
                 continue
             
-            if len(content) < 200:
+            if len(content) < 50:
                 print(f"  ⚠️  正文太短({len(content)}字)，跳过")
                 continue
 
