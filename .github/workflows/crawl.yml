@@ -1,0 +1,33 @@
+name: 抓取爆款文章
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_articles:
+        description: '每个账号最多抓取篇数'
+        required: false
+        default: '50'
+  schedule:
+    - cron: '0 17 * * 0'
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: 设置Python环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: 安装依赖
+        run: pip install requests
+        
+      - name: 抓取文章并喂入进化引擎
+        env:
+          WXAPI_KEY: ${{ secrets.WXAPI_KEY }}
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+        run: python crawler.py ${{ github.event.inputs.max_articles || '50' }}
