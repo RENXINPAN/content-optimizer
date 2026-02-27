@@ -48,6 +48,7 @@ def get_article_detail(article_url: str) -> str:
     try:
         resp = requests.post(url, json=payload, timeout=15, verify=False)
         data = resp.json()
+        print(f"详情API返回：{str(data)[:500]}")
         if data.get("code") == 0:
             return data.get("data", {}).get("content", "")
         else:
