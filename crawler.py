@@ -20,42 +20,40 @@ TARGET_ACCOUNTS = [
 ]
 
 def get_article_list(account_name: str, page: int = 1) -> list:
-    """获取公众号历史文章列表"""
     url = f"{BASE_URL}/post_history"
-    params = {
+    payload = {
         "key": WXAPI_KEY,
         "name": account_name,
         "page": page
     }
     try:
-        resp = requests.get(url, params=params, timeout=15, verify=False)
+        resp = requests.post(url, json=payload, timeout=15)
         data = resp.json()
         if data.get("code") == 200:
             return data.get("data", {}).get("list", [])
         else:
-            print(f"⚠️  {account_name} 列表获取失败：{data.get('msg', '')}")
+            print(f"⚠️  {account_name} 获取失败：{data.get('msg', '')}")
             return []
     except Exception as e:
         print(f"⚠️  {account_name} 请求异常：{e}")
         return []
 
 def get_article_detail(article_url: str) -> str:
-    """获取单篇文章正文（纯文本）"""
     url = f"{BASE_URL}/article_detail"
-    params = {
+    payload = {
         "key": WXAPI_KEY,
         "url": article_url
     }
     try:
-        resp = requests.get(url, params=params, timeout=15, verify=False)
+        resp = requests.post(url, json=payload, timeout=15)
         data = resp.json()
         if data.get("code") == 200:
             return data.get("data", {}).get("content", "")
         else:
-            print(f"⚠️  文章详情获取失败：{data.get('msg', '')}")
+            print(f"⚠️  详情获取失败：{data.get('msg', '')}")
             return ""
     except Exception as e:
-        print(f"⚠️  文章详情请求异常：{e}")
+        print(f"⚠️  详情请求异常：{e}")
         return ""
 
 def crawl_account(account_name: str, max_pages: int = 5, max_articles: int = 50):
