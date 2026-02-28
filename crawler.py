@@ -71,6 +71,8 @@ def extract_content(detail: dict) -> str:
     return ""
 
 def crawl_account(account_name: str, max_articles: int = 50):
+    print(f"DEBUG: API_KEY={os.environ.get('AIRTABLE_API_KEY', 'NOT FOUND')[:20]}")
+    print(f"DEBUG: BASE_ID={os.environ.get('AIRTABLE_BASE_ID', 'NOT FOUND')}")
     print(f"\n📡 开始抓取：{account_name}")
     ingestion = ArticleIngestion()
     count = 0
