@@ -26,7 +26,7 @@ class AirtableClient:
 
     # ==================== 爆款文章库 ====================
 
-   def add_article(self, title: str, content: str, source: str = "手动上传", url: str = "") -> str:
+    def add_article(self, title: str, content: str, source: str = "手动上传", url: str = "") -> str:
         """新增一篇爆款文章，返回记录ID"""
         data = {
             "fields": {
