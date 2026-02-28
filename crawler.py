@@ -56,8 +56,15 @@ def extract_content(detail: dict) -> str:
     for key in ["content", "text", "body", "article_content", "html"]:
         val = detail.get(key, "")
         if val and isinstance(val, str) and len(val) > 100:
-            # 去掉HTML标签提取纯文本
-            clean = re.sub(r'<[^>]+>', '', val)
+            # 去掉style标签和内容
+            clean = re.sub(r'<style[^>]*>.*?</style>', '', val, flags=re.DOTALL)
+            # 去掉script标签
+            clean = re.sub(r'<script[^>]*>.*?</script>', '', clean, flags=re.DOTALL)
+            # 去掉所有HTML标签
+            clean = re.sub(r'<[^>]+>', '', clean)
+            # 清理HTML实体
+            clean = clean.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"')
+            # 清理多余空白
             clean = re.sub(r'\s+', ' ', clean).strip()
             return clean
     print(f"  🔍 详情字段：{list(detail.keys())}")
