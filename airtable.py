@@ -27,17 +27,17 @@ class AirtableClient:
     # ==================== 爆款文章库 ====================
 
     def add_article(self, title: str, content: str, source: str = "手动上传", url: str = "") -> str:
-        """新增一篇爆款文章，返回记录ID"""
-        data = {
-            "fields": {
-                "标题": title,
-                "正文": content,
-                "来源": source,
-                "url": url,
-                "入库时间": datetime.now().isoformat(),
-                "状态": "待分析"
-            }
+    """新增一篇爆款文章，返回记录ID"""
+        fields = {
+            "标题": title,
+            "正文": content,
+            "来源": source,
+            "入库时间": datetime.now().isoformat(),
+            "状态": "待分析"
         }
+        if url:
+            fields["URL"] = url
+        data = {"fields": fields}
         result = self._request("POST", "articles", data=data)
         return result["id"]
 
