@@ -40,16 +40,16 @@ class AirtableClient:
         }
        
         data = {"fields": fields}
-        result = self._request("POST", "articles", data=data)
+        result = self._request("POST", "爆款文章库", data=data)
         return result["id"]
 
-    def get_unanalyzed_articles(self) -> list:
+    def get_unanalyzed_爆款文章库(self) -> list:
         """获取所有待分析的文章"""
         params = {
             "filterByFormula": '{状态} = "待分析"',
             "pageSize": 100
         }
-        result = self._request("GET", "articles", params=params)
+        result = self._request("GET", "爆款文章库", params=params)
         return result.get("records", [])
 
     def update_article_features(self, record_id: str, features: dict):
@@ -61,7 +61,7 @@ class AirtableClient:
                 "分析时间": datetime.now().isoformat()
             }
         }
-        self._request("PATCH", "articles", data=data, record_id=record_id)
+        self._request("PATCH", "爆款文章库", data=data, record_id=record_id)
 
     def update_article_score(self, record_id: str, read_count: int,
                               like_count: int, share_count: int, collect_count: int):
@@ -87,9 +87,9 @@ class AirtableClient:
                 "数据更新时间": datetime.now().isoformat()
             }
         }
-        self._request("PATCH", "articles", data=data, record_id=record_id)
+        self._request("PATCH", "爆款文章库", data=data, record_id=record_id)
 
-    def get_articles_with_scores(self, limit: int = 200) -> list:
+    def get_爆款文章库_with_scores(self, limit: int = 200) -> list:
         """获取已有效果数据的文章（用于训练）"""
         params = {
             "filterByFormula": 'AND({状态} = "已分析", {综合分数} > 0)',
@@ -97,10 +97,10 @@ class AirtableClient:
             "sort[0][field]": "入库时间",
             "sort[0][direction]": "desc"
         }
-        result = self._request("GET", "articles", params=params)
+        result = self._request("GET", "爆款文章库", params=params)
         return result.get("records", [])
 
-    def get_recent_viral_articles(self, limit: int = 10) -> list:
+    def get_recent_viral_爆款文章库(self, limit: int = 10) -> list:
         """获取最近的爆款文章（短期记忆）"""
         params = {
             "filterByFormula": 'AND({是否爆款} = 1, {综合分数} >= 70)',
@@ -108,7 +108,7 @@ class AirtableClient:
             "sort[0][field]": "入库时间",
             "sort[0][direction]": "desc"
         }
-        result = self._request("GET", "articles", params=params)
+        result = self._request("GET", "爆款文章库", params=params)
         return result.get("records", [])
 
     # ==================== 规律库 ====================
