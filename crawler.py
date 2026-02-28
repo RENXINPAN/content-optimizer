@@ -70,14 +70,6 @@ def extract_content(detail: dict) -> str:
     print(f"  🔍 详情字段：{list(detail.keys())}")
     return ""
 
-# URL去重检查
-try:
-    existing = ingestion.db._request("GET", "articles", params={"filterByFormula": f'{{url}}="{article_url}"'})
-    if existing.get("records"):
-        print(f"  ⏭️  已存在，跳过")
-        continue
-except Exception:
-    pass
 def crawl_account(account_name: str, max_articles: int = 50):
     print(f"\n📡 开始抓取：{account_name}")
     ingestion = ArticleIngestion()
