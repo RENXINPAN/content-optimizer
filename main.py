@@ -192,7 +192,7 @@ def process_weekly_feedback(feedback_text: str):
         # 通过标题查找record_id
         params = {"filterByFormula": f'{{标题}} = "{item["title"]}"'}
         try:
-            result = db._request("GET", "生成内容库", params=params)
+            result = db._request("GET", "contents", params=params)
             records = result.get("records", [])
             if records:
                 item["record_id"] = records[0]["id"]

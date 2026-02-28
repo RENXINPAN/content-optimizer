@@ -28,7 +28,7 @@ def setup_all_tables():
     print("🚀 开始自动创建Airtable表结构...\n")
 
     # ==================== 表1：爆款文章库 ====================
-    create_table("爆款文章库", [
+    create_table("articles", [
         {"name": "标题", "type": "singleLineText"},
         {"name": "正文", "type": "multilineText"},
         {"name": "来源", "type": "singleLineText"},
@@ -49,7 +49,7 @@ def setup_all_tables():
     ])
 
     # ==================== 表2：规律库 ====================
-    create_table("规律库", [
+    create_table("patterns", [
         {"name": "规律类型", "type": "singleLineText"},
         {"name": "规律描述", "type": "multilineText"},
         {"name": "置信度", "type": "number", "options": {"precision": 4}},
@@ -64,7 +64,7 @@ def setup_all_tables():
     ])
 
     # ==================== 表3：Prompt版本库 ====================
-    create_table("Prompt版本库", [
+    create_table("prompts", [
         {"name": "版本号", "type": "singleLineText"},
         {"name": "Prompt内容", "type": "multilineText"},
         {"name": "基于规律数量", "type": "number", "options": {"precision": 0}},
@@ -78,7 +78,7 @@ def setup_all_tables():
     ])
 
     # ==================== 表4：生成内容库 ====================
-    create_table("生成内容库", [
+    create_table("contents", [
         {"name": "标题", "type": "singleLineText"},
         {"name": "正文", "type": "multilineText"},
         {"name": "使用Prompt版本", "type": "singleLineText"},
