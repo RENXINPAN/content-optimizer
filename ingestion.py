@@ -40,12 +40,12 @@ class ArticleIngestion:
     def __init__(self):
         self.db = AirtableClient()
 
-    def ingest(self, title: str, content: str, source: str = "手动上传") -> str:
+    def ingest(self, title: str, content: str, source: str = "手动上传", url: str = "") -> str:
         """摄入一篇新文章，提取特征，存入Airtable"""
         print(f"📥 摄入文章：{title[:20]}...")
 
         # 1. 存入数据库
-        record_id = self.db.add_article(title, content, source)
+        record_id = self.db.add_article(title, content, source, url)
 
         # 2. 提取特征
         features = self.extract_features(title, content)
