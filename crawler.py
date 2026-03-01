@@ -82,7 +82,7 @@ def crawl_account(account_name: str, max_articles: int = 50):
         print(f"  第{page}页...")
         articles = get_article_list(account_name, page)
         if not articles:
-            print(f"  第{page}页无数据，停止")
+            print(f"  第{page}页无数据，停止，已抓{count}篇")
             break
 
         for article in articles:
@@ -137,7 +137,7 @@ def crawl_account(account_name: str, max_articles: int = 50):
             time.sleep(0.8)
 
         page += 1
-        if page > 20:  # 最多翻20页防止无限循环
+        if page > 200:  # 最多翻20页防止无限循环
             break
         time.sleep(1)
 
