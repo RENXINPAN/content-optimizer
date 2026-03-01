@@ -103,8 +103,9 @@ def crawl_account(account_name: str, max_articles: int = 50):
 
             print(f"  📄 {title[:35]}...")
             # URL去重检查
+            # URL去重检查
             try:
-                existing = db._request("GET", "articles", params={"filterByFormula": f'{{url}}="{article_url}"'})
+                existing = ingestion.db._request("GET", "爆款文章库", params={"filterByFormula": f'{{url}}="{article_url}"'})
                 if existing.get("records"):
                     print(f"  ⏭️  已存在，跳过")
                     continue
