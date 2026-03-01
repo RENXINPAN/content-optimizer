@@ -17,7 +17,7 @@ BASE_URL = "https://www.dajiala.com/fbmain/monitor/v3"
 
 TARGET_ACCOUNTS = [
     "刘润",
-    "S叔Spenser",
+    "香港S叔",
     "武志红",
     "半佛仙人",
 ]
