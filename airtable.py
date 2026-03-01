@@ -101,6 +101,16 @@ class AirtableClient:
         result = self._request("GET", "爆款文章库", params=params)
         return result.get("records", [])
 
+    def get_all_articles(self, limit: int = 200) -> list:
+    """获取所有已入库文章"""
+        params = {
+            "pageSize": limit,
+            "sort[0][field]": "入库时间",
+            "sort[0][direction]": "desc"
+        }
+        result = self._request("GET", "爆款文章库", params=params)
+        return result.get("records", [])
+
     def get_recent_viral_爆款文章库(self, limit: int = 10) -> list:
         """获取最近的爆款文章（短期记忆）"""
         params = {
