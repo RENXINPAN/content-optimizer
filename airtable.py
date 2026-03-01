@@ -38,7 +38,8 @@ class AirtableClient:
             "入库时间": datetime.now().isoformat(),
             "状态": "待分析"
         }
-       
+        if url:
+            fields["url"] = url
         data = {"fields": fields}
         result = self._request("POST", "爆款文章库", data=data)
         return result["id"]
