@@ -124,11 +124,11 @@ def crawl_account(account_name: str, max_articles: int = 50):
 
             try:
                 ingestion.ingest(
-    title=title,
-    content=content,
-    source=f"{account_name}",
-    url=article_url
-)
+                    title=title,
+                    content=content,
+                    source=f"{account_name}",
+                    url=article_url
+                )
                 count += 1
                 print(f"  ✅ 已入库（{count}/{max_articles}）")
             except Exception as e:
