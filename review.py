@@ -9,18 +9,10 @@ import requests
 from datetime import datetime
 from airtable import AirtableClient
 
-MAX_REWRITE_ROUNDS = 3  # 最多重写次数
+MAX_REWRITE_ROUNDS = 3
 
-
-# ============================================================
-# Coze API 调用
-# ============================================================
 
 def call_coze_bot(bot_id, message, timeout=60):
-    """
-    通用Coze Bot API调用
-    返回Bot的文本回复
-    """
     token = os.environ.get("COZE_API_TOKEN")
     if not token:
         return None, "COZE_API_TOKEN未配置"
@@ -50,7 +42,6 @@ def call_coze_bot(bot_id, message, timeout=60):
         if not chat_id:
             return None, f"API调用失败: {data}"
 
-        # 轮询等待结果
         for _ in range(timeout):
             time.sleep(1)
             check_resp = requests.get(
@@ -82,7 +73,6 @@ def call_coze_bot(bot_id, message, timeout=60):
 
 
 def parse_json_response(text):
-    """从Bot回复中提取JSON"""
     clean = text.strip()
     if clean.startswith("```"):
         clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
@@ -93,12 +83,7 @@ def parse_json_response(text):
         return None, f"JSON解析失败: {e}, 原文: {text[:200]}"
 
 
-# ============================================================
-# 审核
-# ============================================================
-
 def review_content(title, content):
-    """调用审核Bot，返回审核结果dict"""
     bot_id = os.environ.get("COZE_BOT_ID")
     if not bot_id:
         return {"score": 0, "passed": False, "review_notes": "COZE_BOT_ID未配置"}
@@ -116,15 +101,7 @@ def review_content(title, content):
     return result
 
 
-# ============================================================
-# 重写
-# ============================================================
-
 def rewrite_content(title, content, review_notes):
-    """
-    调用通义千问根据审核意见重写文章
-    用的是已有的QWEN_API_KEY，不额外增加依赖
-    """
     api_key = os.environ.get("QWEN_API_KEY")
     if not api_key:
         return None, None, "QWEN_API_KEY未配置"
@@ -177,12 +154,7 @@ def rewrite_content(title, content, review_notes):
         return None, None, str(e)
 
 
-# ============================================================
-# Server酱通知
-# ============================================================
-
 def notify_wechat(title, desp):
-    """Server酱推送到微信"""
     key = os.environ.get("SERVERCHAN_KEY")
     if not key:
         print("WARNING: SERVERCHAN_KEY未配置，跳过通知")
@@ -198,10 +170,6 @@ def notify_wechat(title, desp):
         print(f"Server酱失败: {e}")
 
 
-# ============================================================
-# 主流程：审核 + 自动重写循环
-# ============================================================
-
 def run_review():
     at = AirtableClient()
     records = at.get_records("contents", filter_formula='{status}="待审核"')
@@ -216,14 +184,13 @@ def run_review():
         record_id = record["id"]
         fields = record.get("fields", {})
         title = fields.get("标题", "无标题")
-        content = fields.get("内容", "")
+        content = fields.get("正文", "")
         current_round = fields.get("review_round", 0)
 
         print(f"\n{'='*50}")
         print(f"审核: {title}")
         print(f"当前轮次: {current_round}")
 
-        # ---- 审核+重写循环 ----
         for round_num in range(current_round, MAX_REWRITE_ROUNDS + 1):
             print(f"\n  第 {round_num + 1} 轮审核...")
             review = review_content(title, content)
@@ -235,10 +202,9 @@ def run_review():
             print(f"  意见: {notes[:100]}")
 
             if passed:
-                # 审核通过 → 更新Airtable
                 at.update_record("contents", record_id, {
                     "标题": title,
-                    "内容": content,
+                    "正文": content,
                     "status": "已通过",
                     "score": score,
                     "review_notes": notes,
@@ -255,14 +221,12 @@ def run_review():
                 break
 
             elif round_num < MAX_REWRITE_ROUNDS:
-                # 未通过且还有重写次数 → 自动重写
                 print(f"  → 自动重写 (第{round_num + 1}次)...")
                 new_title, new_content, rewrite_error = rewrite_content(
                     title, content, notes
                 )
                 if rewrite_error:
                     print(f"  重写失败: {rewrite_error}")
-                    # 重写失败，标记需修改，退出循环
                     at.update_record("contents", record_id, {
                         "status": "需修改",
                         "score": score,
@@ -281,14 +245,12 @@ def run_review():
                     title = new_title
                     content = new_content
                     print(f"  重写完成，新标题: {title}")
-                    # 短暂等待，避免API限流
                     time.sleep(2)
 
             else:
-                # 超过最大重写次数
                 at.update_record("contents", record_id, {
                     "标题": title,
-                    "内容": content,
+                    "正文": content,
                     "status": "需修改",
                     "score": score,
                     "review_notes": f"经过{MAX_REWRITE_ROUNDS}轮自动重写仍未通过(最高{score}分)。\n最后意见: {notes}",
@@ -302,14 +264,13 @@ def run_review():
                     "notes": notes,
                 })
 
-    # ---- 汇总通知 ----
     if all_results:
         passed_count = sum(1 for r in all_results if r["status"] == "已通过")
         total = len(all_results)
 
         notify_title = f"审核完成: {passed_count}/{total}篇通过"
 
-        desp = "## 📋 今日内容审核报告\n\n"
+        desp = "## 今日内容审核报告\n\n"
         for r in all_results:
             if r["status"] == "已通过":
                 desp += f"### ✅ {r['title']}\n"
