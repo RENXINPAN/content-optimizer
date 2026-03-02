@@ -261,3 +261,20 @@ class AirtableClient:
         params = {"filterByFormula": '{状态} = "待审核"'}
         result = self._request("GET", "contents", params=params)
         return result.get("records", [])
+
+    def update_record(self, table_name, record_id, fields):
+        """更新单条记录"""
+        url = f"{self.base_url}/{table_name}/{record_id}"
+        data = {"fields": fields}
+        return self._request("PATCH", url, json=data)
+    
+    def get_records(self, table_name, filter_formula=None, max_records=10):
+        """获取记录，支持过滤"""
+        url = f"{self.base_url}/{table_name}"
+        params = {}
+        if filter_formula:
+            params["filterByFormula"] = filter_formula
+        if max_records:
+            params["maxRecords"] = max_records
+        resp = self._request("GET", url, params=params)
+        return resp.get("records", [])
