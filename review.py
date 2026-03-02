@@ -25,7 +25,7 @@ def call_coze_bot(bot_id, message, timeout=60):
     payload = {
         "bot_id": bot_id,
         "user_id": "review_system",
-        "stream": False,
+        "stream": True,
         "auto_save_history": False,
         "additional_messages": [
             {"role": "user", "content": message, "content_type": "text"}
