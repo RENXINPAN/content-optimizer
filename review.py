@@ -78,10 +78,10 @@ def call_coze_bot(bot_id, message, timeout=60):
 
             if status == "completed":
                 # 第三步：获取完整回复
-                msg_resp = requests.get(
+                msg_resp = requests.post(
                     "https://api.coze.cn/v3/chat/message/list",
                     headers=headers,
-                    params={"chat_id": chat_id, "conversation_id": conversation_id},
+                    json={"chat_id": chat_id, "conversation_id": conversation_id},
                     timeout=30
                 )
                 msg_data = msg_resp.json()
