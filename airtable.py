@@ -20,10 +20,10 @@ class AirtableClient:
         url = f"{self.base_url}/{table}"
         if record_id:
             url = f"{url}/{record_id}"
-        print(f"DEBUG请求: method={method}, url={url}, data={str(data)[:200]}")
+    
         resp = requests.request(method, url, headers=self.headers, json=data, params=params)
         if not resp.ok:
-            print(f"DEBUG错误详情: {resp.status_code} {resp.text}")
+            
             resp.raise_for_status()
         return resp.json()
 
