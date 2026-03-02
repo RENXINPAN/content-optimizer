@@ -33,40 +33,36 @@ def call_coze_bot(bot_id, message, timeout=60):
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        resp = requests.post(url, headers=headers, json=payload, timeout=90, stream=True)
         resp.raise_for_status()
-        data = resp.json()
 
-        chat_id = data.get("data", {}).get("id")
-        conversation_id = data.get("data", {}).get("conversation_id")
-        if not chat_id:
-            return None, f"API调用失败: {data}"
+        # 解析SSE流式响应，提取chat_id和conversation_id
+        chat_id = None
+        conversation_id = None
+        answer_text = ""
 
-        for _ in range(timeout):
-            time.sleep(1)
-            check_resp = requests.get(
-                "https://api.coze.cn/v3/chat/retrieve",
-                headers=headers,
-                params={"chat_id": chat_id, "conversation_id": conversation_id}
-            )
-            check_data = check_resp.json()
-            status = check_data.get("data", {}).get("status")
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line or not line.startswith("data:"):
+                continue
+            data_str = line[5:].strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                event = json.loads(data_str)
+                # 提取chat_id
+                if not chat_id and event.get("id"):
+                    chat_id = event.get("id")
+                    conversation_id = event.get("conversation_id")
+                # 提取回复内容
+                if event.get("role") == "assistant" and event.get("type") == "answer":
+                    answer_text += event.get("content", "")
+            except json.JSONDecodeError:
+                continue
 
-            if status == "completed":
-                msg_resp = requests.get(
-                    "https://api.coze.cn/v3/chat/message/list",
-                    headers=headers,
-                    params={"chat_id": chat_id, "conversation_id": conversation_id}
-                )
-                messages = msg_resp.json().get("data", [])
-                for msg in messages:
-                    if msg.get("role") == "assistant" and msg.get("type") == "answer":
-                        return msg.get("content", ""), None
-                return None, "未找到回复内容"
-            elif status == "failed":
-                return None, "Coze处理失败"
-
-        return None, "超时"
+        if answer_text:
+            return answer_text, None
+        else:
+            return None, f"未获取到回复内容, chat_id={chat_id}"
 
     except Exception as e:
         return None, str(e)
