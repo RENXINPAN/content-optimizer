@@ -24,16 +24,27 @@
   - `ingestion.py` — 文章特征提取入库
   - `evolution.py` — 进化引擎
   - `prompt_builder.py` — Prompt构建
+  - `main.py` — 主流程调度器
+  - `airtable.py` — Airtable数据读写客户端
   - `.github/workflows/crawl.yml` — 抓取工作流
   - `.github/workflows/daily.yml` — 每日生成工作流
 
 ### Airtable
 - Base ID：`apphDOxCslstliiKO`
-- 4张表：
-  - `articles` — 存储抓取的文章（字段：标题、正文、来源、发布时间等）
-  - `patterns` — 提取的写作规律
-  - `prompts` — 历次Prompt版本
-  - `contents` — 每日生成的内容
+- Base名称：**内容进化系统**
+- 4张表（表名必须和代码完全一致）：
+
+| Airtable表名 | 代码中的名称 | 用途 |
+|------------|------------|------|
+| 爆款文章库 | 爆款文章库 | 存储抓取的文章 |
+| patterns | patterns | 提取的写作规律 |
+| prompts | prompts | Prompt版本库 |
+| contents | contents | 每日生成的内容 |
+
+**注意：爆款文章库用中文名，其余三张表用英文名！**
+
+### 爆款文章库字段
+- 标题、正文、来源、url、入库时间、状态、特征数据
 
 ### GitHub Secrets（已配置）
 | 名称 | 用途 |
@@ -49,72 +60,118 @@
 
 ### 使用的API服务
 - 服务商：**极致了**（dajiala.com）
-- 充值账户：需要余额才能使用
 - 接口地址：`https://www.dajiala.com/fbmain/monitor/v3`
 
 ### 接口价格
 | 接口 | 价格 |
 |------|------|
-| 历史文章列表（post_history） | 0.06-0.08元/次 |
+| 历史文章列表（post_history） | 0.06-0.08元/次，每次20篇 |
 | 文章详情（article_detail） | 0.045元/次 |
+| 去重查Airtable | 免费 |
+
+### 费用估算
+- 每篇文章成本约0.05元
+- 每账号抓500篇约25元
+- 4个账号共约100元
 
 ### 目标公众号
 ```python
 TARGET_ACCOUNTS = [
     "刘润",
-    "S叔Spenser", 
+    "香港S叔",   # 注意：不是"S叔Spenser"，已改名
     "武志红",
     "半佛仙人",
 ]
 ```
 
 ### 触发抓取
-在GitHub Actions手动触发 `crawl.yml`，输入参数为每账号抓取篇数（建议填50或100）。
-
-### 已知问题与解决方案
-1. **SSL证书问题** → `verify=False` 已加入代码
-2. **API返回code=0表示成功**（不是200）→ 已修复
-3. **详情接口返回HTML**，需用正则清理标签 → 已修复
-4. **正文判断阈值** → 设为50字符，避免误判
-5. **文章开头含标题/作者/Tips等模板内容** → 不影响AI分析，直接存入
+在GitHub Actions手动触发`crawl.yml`，输入参数为每账号抓取篇数。
 
 ---
 
-## 每日工作流
+## 运行命令
 
-`daily.yml` 每天自动运行，流程：
-1. 调用通义千问生成当日内容
-2. 存入Airtable `contents` 表
-3. 积累5篇以上自动触发进化引擎
+```bash
+python main.py generate   # 每日内容生成
+python main.py evolve     # 每周进化（分析规律）
+python main.py ingest     # 手动摄入单篇文章
+python main.py feedback   # 处理效果数据回流
+```
+
+---
+
+## 三层记忆系统
+
+| 层级 | 分析篇数 | 用途 |
+|------|---------|------|
+| 短期 | 10篇 | 当前热点趋势，时效性强 |
+| 中期 | 50篇 | 近期稳定规律 |
+| 长期 | 3000篇 | 底层稳定规律 |
+
+生成内容时三层规律叠加使用，长期打底+中期调整+短期微调。
+
+---
+
+## 已知问题与解决方案
+
+### 1. 表名问题（重要！）
+代码里部分表用中文名，部分用英文名，混用会导致403错误：
+- `爆款文章库` — 中文
+- `patterns`、`prompts`、`contents` — 英文
+
+如果报403且错误信息是`INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND`，第一步先检查表名是否匹配！
+
+### 2. Airtable URL字段
+爆款文章库里有`url`字段，类型为URL，**不能传空字符串**，代码里已做保护：
+```python
+if url:
+    fields["url"] = url
+```
+
+### 3. 翻页限制
+Airtable单次请求最多返回100条，`get_all_articles`已实现翻页逻辑，可获取全部文章。
+
+### 4. 进化引擎无综合分数
+抓取的文章没有阅读量/点赞数，所以没有综合分数。已将所有文章都当爆款处理，直接分析规律。
+
+### 5. 爬虫翻页限制
+原代码限制最多翻20页（400篇），已改为200页，确保能抓到足够文章。
+
+### 6. SSL证书问题
+极致了API在GitHub Actions环境下SSL验证失败，所有请求已加`verify=False`。
+
+### 7. API返回码
+极致了API返回`code=0`表示成功，不是`code=200`。
+
+### 8. pageSize限制
+Airtable的`pageSize`最大100，超过会报422错误。
 
 ---
 
 ## 后续待做
 
-- [ ] 接入Coze，实现内容自动推送微信
-- [ ] 加入文章去重逻辑（避免重复抓取消耗费用）
-- [ ] 抓取文章阅读量/点赞数，筛选真正爆款
-- [ ] 扩展更多目标公众号
+- [ ] 清理DEBUG代码（现在日志很乱）
+- [ ] 接入Coze，实现内容推送微信审核
+- [ ] 抓取文章阅读量/点赞数，实现真正的爆款筛选
+- [ ] 输入一句核心观点自动扩展成完整文章
+- [ ] 多平台输出（公众号/小红书/微博）
+- [ ] 小说创作系统
 
 ---
 
-## 调试历史（给新Claude看）
+## 当前数据状态
 
-### 问题排查记录
-- API POST请求需要JSON body，不是URL参数
-- `post_history` 返回的 `data` 直接是数组，不需要 `.get("list")`
-- 文章详情返回的是完整HTML页面，字段名为 `content` 或 `html`
-- Airtable表名全部为英文（articles/patterns/prompts/contents），字段名为中文（标题、正文等）
-
-### 常见报错
-| 报错 | 原因 | 解决 |
-|------|------|------|
-| SSL证书错误 | GitHub Actions环境问题 | requests加verify=False |
-| 403 Airtable | Token权限或字段名问题 | 检查Secret是否正确传入workflow env |
-| 正文太短跳过 | HTML未清理 / 阈值太高 | 用re清理HTML标签，阈值改50 |
+- 已入库文章：约2152篇（刘润156篇、香港S叔53篇、武志红、半佛仙人等）
+- 已提取规律：短期3条、中期3条、长期8条
+- 内容生成：已跑通，每次生成存入contents表
 
 ---
 
-## 联系方式
+## 给新Claude的接手说明
 
-如有问题，把这份README发给新的Claude，他能快速了解项目背景接手工作。
+1. 先看这份README了解全貌
+2. 如果报403，先检查表名是否匹配（最常见问题）
+3. 如果进化引擎跳过，检查文章是否有`特征数据`字段
+4. 如果内容没存进去，检查`contents`表名是否正确
+5. 遇到缩进报错，让用户用Tab键选中整块缩进
+6. 调试时在`_request`方法加`print(f"DEBUG错误详情: {resp.status_code} {resp.text}")`看具体错误原因
