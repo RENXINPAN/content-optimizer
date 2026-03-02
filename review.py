@@ -17,6 +17,7 @@ def call_coze_bot(bot_id, message, timeout=60):
     if not token:
         return None, "COZE_API_TOKEN未配置"
 
+    # 第一步：创建对话
     url = "https://api.coze.cn/v3/chat"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -33,13 +34,12 @@ def call_coze_bot(bot_id, message, timeout=60):
     }
 
     try:
+        # 发送请求，从流式响应中只提取chat_id和conversation_id
         resp = requests.post(url, headers=headers, json=payload, timeout=90, stream=True)
         resp.raise_for_status()
 
-        # 解析SSE流式响应，提取chat_id和conversation_id
         chat_id = None
         conversation_id = None
-        answer_text = ""
 
         for line in resp.iter_lines(decode_unicode=True):
             if not line or not line.startswith("data:"):
@@ -49,21 +49,42 @@ def call_coze_bot(bot_id, message, timeout=60):
                 break
             try:
                 event = json.loads(data_str)
-                print(f"  DEBUG event: {str(event)[:200]}")
-                # 提取chat_id
                 if not chat_id and event.get("id"):
                     chat_id = event.get("id")
                     conversation_id = event.get("conversation_id")
-                # 提取回复内容
-                if event.get("role") == "assistant" and event.get("type") == "answer":
-                    answer_text += event.get("content", "")
+                # 检查是否完成
+                if event.get("status") == "completed":
+                    break
             except json.JSONDecodeError:
                 continue
 
-        if answer_text:
-            return answer_text, None
-        else:
-            return None, f"未获取到回复内容, chat_id={chat_id}"
+        resp.close()
+
+        if not chat_id or not conversation_id:
+            return None, "未获取到chat_id"
+
+        # 第二步：等一下让Bot处理完
+        time.sleep(3)
+
+        # 第三步：通过消息列表API获取完整回复
+        msg_url = "https://api.coze.cn/v3/chat/message/list"
+        msg_resp = requests.get(
+            msg_url,
+            headers=headers,
+            params={"chat_id": chat_id, "conversation_id": conversation_id},
+            timeout=30
+        )
+        msg_data = msg_resp.json()
+        print(f"  DEBUG msg_data: {str(msg_data)[:500]}")
+
+        messages = msg_data.get("data", [])
+        for msg in messages:
+            if msg.get("role") == "assistant" and msg.get("type") == "answer":
+                content = msg.get("content", "")
+                if content:
+                    return content, None
+
+        return None, f"消息列表中无回复, messages count={len(messages)}"
 
     except Exception as e:
         return None, str(e)
