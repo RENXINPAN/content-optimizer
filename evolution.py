@@ -27,7 +27,7 @@ class EvolutionEngine:
         print(f"\n🧬 开始进化 [{layer}记忆层]...")
 
         articles = self.db.get_all_articles(
-            limit=10 if layer == "短期" else 50 if layer == "中期" else 200
+            limit=10 if layer == "短期" else 50 if layer == "中期" else 5000
         )
         
         if len(articles) < 5:
