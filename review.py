@@ -63,28 +63,40 @@ def call_coze_bot(bot_id, message, timeout=60):
         if not chat_id or not conversation_id:
             return None, "未获取到chat_id"
 
-        # 第二步：等一下让Bot处理完
-        time.sleep(3)
+        # 第二步：轮询等待Bot处理完成
+        for i in range(timeout):
+            time.sleep(2)
+            check_resp = requests.get(
+                "https://api.coze.cn/v3/chat/retrieve",
+                headers=headers,
+                params={"chat_id": chat_id, "conversation_id": conversation_id},
+                timeout=30
+            )
+            check_data = check_resp.json()
+            status = check_data.get("data", {}).get("status", "")
+            print(f"  DEBUG 轮询第{i+1}次, status={status}")
 
-        # 第三步：通过消息列表API获取完整回复
-        msg_url = "https://api.coze.cn/v3/chat/message/list"
-        msg_resp = requests.get(
-            msg_url,
-            headers=headers,
-            params={"chat_id": chat_id, "conversation_id": conversation_id},
-            timeout=30
-        )
-        msg_data = msg_resp.json()
-        print(f"  DEBUG msg_data: {str(msg_data)[:500]}")
+            if status == "completed":
+                # 第三步：获取完整回复
+                msg_resp = requests.get(
+                    "https://api.coze.cn/v3/chat/message/list",
+                    headers=headers,
+                    params={"chat_id": chat_id, "conversation_id": conversation_id},
+                    timeout=30
+                )
+                msg_data = msg_resp.json()
+                messages = msg_data.get("data", [])
+                for msg in messages:
+                    if msg.get("role") == "assistant" and msg.get("type") == "answer":
+                        content = msg.get("content", "")
+                        if content:
+                            return content, None
+                return None, f"已完成但无回复内容, messages={len(messages)}"
 
-        messages = msg_data.get("data", [])
-        for msg in messages:
-            if msg.get("role") == "assistant" and msg.get("type") == "answer":
-                content = msg.get("content", "")
-                if content:
-                    return content, None
+            elif status == "failed":
+                return None, "Coze处理失败"
 
-        return None, f"消息列表中无回复, messages count={len(messages)}"
+        return None, "轮询超时"
 
     except Exception as e:
         return None, str(e)
