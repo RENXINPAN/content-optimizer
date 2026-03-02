@@ -87,12 +87,17 @@ def review_content(title, content):
     message = f"审核\n\n标题：{title}\n\n正文：\n{content[:3000]}"
     reply, error = call_coze_bot(bot_id, message)
 
+    print(f"  DEBUG Coze原始回复: {repr(reply)[:300]}")
+
     if error:
         return {"score": 0, "passed": False, "review_notes": f"审核调用失败: {error}"}
 
     result, parse_error = parse_json_response(reply)
     if parse_error:
         return {"score": 0, "passed": False, "review_notes": parse_error}
+
+    if not isinstance(result, dict):
+        return {"score": 0, "passed": False, "review_notes": f"审核返回非dict: {type(result)} {str(result)[:200]}"}
 
     return result
 
