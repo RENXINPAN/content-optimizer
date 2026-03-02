@@ -103,7 +103,7 @@ def review_content(title, content):
     if not bot_id:
         return {"score": 0, "passed": False, "review_notes": "COZE_BOT_ID未配置"}
 
-    message = f"请审核以下文章：\n\n标题：{title}\n\n正文：\n{content[:3000]}"
+    message = f"审核\n\n标题：{title}\n\n正文：\n{content[:3000]}"
     reply, error = call_coze_bot(bot_id, message)
 
     if error:
