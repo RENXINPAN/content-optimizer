@@ -49,6 +49,7 @@ def call_coze_bot(bot_id, message, timeout=60):
                 break
             try:
                 event = json.loads(data_str)
+                print(f"  DEBUG event: {str(event)[:200]}")
                 # 提取chat_id
                 if not chat_id and event.get("id"):
                     chat_id = event.get("id")
