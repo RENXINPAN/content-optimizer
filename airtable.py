@@ -23,7 +23,7 @@ class AirtableClient:
     
         resp = requests.request(method, url, headers=self.headers, json=data, params=params)
         if not resp.ok:
-            
+            print(f"DEBUG: {resp.status_code} {resp.text}")
             resp.raise_for_status()
         return resp.json()
 
