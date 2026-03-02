@@ -66,7 +66,7 @@ class EvolutionEngine:
 
         # ---- 规律1：标题特征 ----
         viral_number_rate = viral_features["title"]["has_number"]
-        normal_number_rate = normal_features["title"]["has_number"]
+        normal_number_rate = normal_features["title"].get("has_number", 0)
         if viral_number_rate - normal_number_rate > 0.2:
             confidence = min((viral_number_rate - normal_number_rate) * len(viral) / 10, 1.0)
             patterns.append({
@@ -149,7 +149,7 @@ class EvolutionEngine:
 
         # ---- 规律5：结尾互动引导 ----
         viral_cta_rate = viral_features["structure"]["has_cta"]
-        normal_cta_rate = normal_features["structure"]["has_cta"]
+        normal_cta_rate = normal_features["structure"].get("has_cta", 0)
         if viral_cta_rate - normal_cta_rate > 0.15:
             patterns.append({
                 "type": "结尾互动引导",
