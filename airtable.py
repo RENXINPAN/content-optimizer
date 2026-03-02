@@ -236,6 +236,9 @@ class AirtableClient:
                 "使用Prompt版本": prompt_version,
                 "预测分数": round(predicted_score, 2),
                 "状态": "待审核",
+                "status": "待审核",
+                "source": "自动生成",
+                "review_round": 0,
                 "生成时间": datetime.now().isoformat()
             }
         }
@@ -248,7 +251,7 @@ class AirtableClient:
                      data={"fields": {
                          "实际分数": round(actual_score, 2),
                          "偏差值": round(actual_score - self._get_predicted_score(record_id), 2),
-                         "状态": "已发布"
+                         "status": "已发布"
                      }},
                      record_id=record_id)
 
@@ -258,23 +261,19 @@ class AirtableClient:
 
     def get_pending_review_content(self) -> list:
         """获取待审核的内容"""
-        params = {"filterByFormula": '{状态} = "待审核"'}
+        params = {"filterByFormula": '{status} = "待审核"'}
         result = self._request("GET", "contents", params=params)
         return result.get("records", [])
 
     def update_record(self, table_name, record_id, fields):
-        """更新单条记录"""
-        url = f"{self.base_url}/{table_name}/{record_id}"
         data = {"fields": fields}
-        return self._request("PATCH", url, json=data)
-    
+        return self._request("PATCH", table_name, data=data, record_id=record_id)
+
     def get_records(self, table_name, filter_formula=None, max_records=10):
-        """获取记录，支持过滤"""
-        url = f"{self.base_url}/{table_name}"
         params = {}
         if filter_formula:
             params["filterByFormula"] = filter_formula
         if max_records:
             params["maxRecords"] = max_records
-        resp = self._request("GET", url, params=params)
-        return resp.get("records", [])
+        result = self._request("GET", table_name, params=params)
+        return result.get("records", [])
