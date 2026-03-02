@@ -102,15 +102,23 @@ class AirtableClient:
         return result.get("records", [])
 
     def get_all_articles(self, limit: int = 200) -> list:
-        """获取所有已入库文章"""
-        params = {
-            "pageSize": limit,
-            "sort[0][field]": "入库时间",
-            "sort[0][direction]": "desc"
-        }
-        result = self._request("GET", "爆款文章库", params=params)
-        return result.get("records", [])
-
+        """获取所有已入库文章（支持翻页）"""
+        all_records = []
+        offset = None
+        while True:
+            params = {
+                "pageSize": 100,
+                "sort[0][field]": "入库时间",
+                "sort[0][direction]": "desc"
+            }
+            if offset:
+                params["offset"] = offset
+            result = self._request("GET", "爆款文章库", params=params)
+            all_records.extend(result.get("records", []))
+            offset = result.get("offset")
+            if not offset or len(all_records) >= limit:
+                break
+        return all_records[:limit]
     def get_recent_viral_爆款文章库(self, limit: int = 10) -> list:
         """获取最近的爆款文章（短期记忆）"""
         params = {
