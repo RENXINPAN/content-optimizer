@@ -235,7 +235,6 @@ class AirtableClient:
                 "正文": content,
                 "使用Prompt版本": prompt_version,
                 "预测分数": round(predicted_score, 2),
-                "状态": "待审核",
                 "status": "待审核",
                 "source": "自动生成",
                 "review_round": 0,
