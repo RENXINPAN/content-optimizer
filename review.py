@@ -85,6 +85,7 @@ def call_coze_bot(bot_id, message, timeout=60):
                     timeout=30
                 )
                 msg_data = msg_resp.json()
+                print(f"  DEBUG msg_resp: status={msg_resp.status_code} body={msg_resp.text[:500]}")
                 messages = msg_data.get("data", [])
                 for msg in messages:
                     if msg.get("role") == "assistant" and msg.get("type") == "answer":
