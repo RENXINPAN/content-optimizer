@@ -1,0 +1,38 @@
+# .github/workflows/daily.yml
+name: 每日内容生成+审核
+
+on:
+  schedule:
+    - cron: '0 1 * * *'   # UTC 01:00 = 北京时间 09:00
+  workflow_dispatch:
+
+jobs:
+  generate-and-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: 生成内容
+        env:
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+        run: python main.py generate
+
+      - name: AI审核+自动重写+通知
+        env:
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          COZE_API_TOKEN: ${{ secrets.COZE_API_TOKEN }}
+          COZE_BOT_ID: ${{ secrets.COZE_BOT_ID }}
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+        run: python review.py
