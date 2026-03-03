@@ -17,7 +17,6 @@ def call_coze_bot(bot_id, message, timeout=60):
     if not token:
         return None, "COZE_API_TOKEN未配置"
 
-    # 第一步：创建对话
     url = "https://api.coze.cn/v3/chat"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -34,71 +33,46 @@ def call_coze_bot(bot_id, message, timeout=60):
     }
 
     try:
-        # 发送请求，从流式响应中只提取chat_id和conversation_id
         resp = requests.post(url, headers=headers, json=payload, timeout=90, stream=True)
         resp.raise_for_status()
 
-        chat_id = None
-        conversation_id = None
-
+        all_events = []
         for line in resp.iter_lines(decode_unicode=True):
-            if not line or not line.startswith("data:"):
+            if not line:
+                continue
+            if line.startswith("event:"):
+                continue
+            if not line.startswith("data:"):
                 continue
             data_str = line[5:].strip()
             if data_str == "[DONE]":
                 break
             try:
                 event = json.loads(data_str)
-                if not chat_id and event.get("id"):
-                    chat_id = event.get("id")
-                    conversation_id = event.get("conversation_id")
-                # 检查是否完成
-                if event.get("status") == "completed":
-                    break
+                all_events.append(event)
             except json.JSONDecodeError:
                 continue
 
         resp.close()
 
-        if not chat_id or not conversation_id:
-            return None, "未获取到chat_id"
+        # 从所有event中找到type=answer的，取最后一条完整内容
+        # Coze流式模式：conversation.message.completed 事件包含完整内容
+        answer = ""
+        for event in all_events:
+            if event.get("role") == "assistant" and event.get("type") == "answer":
+                content = event.get("content", "")
+                if content:
+                    answer = content  # 每次覆盖，最后一条是完整的
 
-        # 第二步：轮询等待Bot处理完成
-        for i in range(timeout):
-            time.sleep(2)
-            check_resp = requests.get(
-                "https://api.coze.cn/v3/chat/retrieve",
-                headers=headers,
-                params={"chat_id": chat_id, "conversation_id": conversation_id},
-                timeout=30
-            )
-            check_data = check_resp.json()
-            status = check_data.get("data", {}).get("status", "")
-            print(f"  DEBUG 轮询第{i+1}次: {check_resp.text[:500]}")
+        if answer:
+            return answer, None
 
-            if status == "completed":
-                # 第三步：获取完整回复
-                msg_url = f"https://api.coze.cn/v3/chat/message/list?chat_id={chat_id}&conversation_id={conversation_id}"
-                print(f"  DEBUG msg_url: {msg_url}")
-                msg_resp = requests.get(
-                    msg_url,
-                    headers=headers,
-                    timeout=30
-                )
-                msg_data = msg_resp.json()
-                print(f"  DEBUG msg_resp full: {msg_resp.text}")
-                messages = msg_data.get("data", [])
-                for msg in messages:
-                    if msg.get("role") == "assistant" and msg.get("type") == "answer":
-                        content = msg.get("content", "")
-                        if content:
-                            return content, None
-                return None, f"已完成但无回复内容, messages={len(messages)}"
+        # 如果没找到，打印所有event供调试
+        print(f"  DEBUG 共{len(all_events)}个event")
+        for i, e in enumerate(all_events):
+            print(f"  DEBUG event[{i}]: role={e.get('role','')} type={e.get('type','')} content=[{str(e.get('content',''))[:100]}] status={e.get('status','')}")
 
-            elif status == "failed":
-                return None, "Coze处理失败"
-
-        return None, "轮询超时"
+        return None, f"流式响应中未找到回复, 共{len(all_events)}个event"
 
     except Exception as e:
         return None, str(e)
