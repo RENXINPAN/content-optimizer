@@ -65,7 +65,7 @@ def call_coze_bot(bot_id, message, timeout=60):
             if event.get("role") == "assistant" and event.get("type") == "answer":
                 content = event.get("content", "")
                 if content:
-                    answer = content  # 每次覆盖，最后一条是完整的
+                    answer += content  # 拼接，不是覆盖
 
         if answer:
             return answer, None
