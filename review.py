@@ -37,6 +37,7 @@ def call_coze_bot(bot_id, message, timeout=60):
         resp.raise_for_status()
 
         all_events = []
+        resp.encoding = "utf-8"
         for line in resp.iter_lines(decode_unicode=True):
             if not line:
                 continue
