@@ -1,6 +1,7 @@
 # prompt_builder.py - 自动构建最优Prompt
 
 import json
+import random
 from datetime import datetime
 from memory import MemoryManager
 from airtable import AirtableClient
@@ -20,9 +21,18 @@ class PromptBuilder:
 
 【从爆款数据中学到的写作规律】
 {learned_patterns}
+
 【风格范文参考】
-以下是你需要学习和模仿的写作风格，请深度模仿这些文章的语感、节奏、句式和表达方式：
+以下是你需要学习和模仿的写作风格，请深度模仿语感、节奏、句式：
 {sample_articles}
+
+【写作风格手册】
+以下是从大量爆款文章中提炼的写作风格指南，请严格模仿：
+{style_handbook}
+
+【知识素材储备】
+以下是你的知识储备，在内容需要时自然运用，不需要时不要硬塞：
+{knowledge_base}
 
 【今日生成要求】
 日期：{date}
@@ -49,10 +59,14 @@ class PromptBuilder:
         requirements = self._build_requirements(weighted_patterns)
         season_note = self._get_season_note()
         sample_text = self._get_sample_articles()
+        style_text = self._get_stylebooks("style")
+        knowledge_text = self._get_stylebooks("knowledge")
 
         prompt = self.BASE_PROMPT.format(
             learned_patterns=learned_text,
             sample_articles=sample_text,
+            style_handbook=style_text,
+            knowledge_base=knowledge_text,
             date=datetime.now().strftime("%Y年%m月%d日"),
             season_note=season_note,
             specific_requirements=requirements
@@ -142,43 +156,74 @@ class PromptBuilder:
             12: "年终，年度复盘、总结、计划"
         }
         return notes.get(month, "普通时期")
+
     def _get_sample_articles(self, count_per_author=2, total_max_chars=20000) -> str:
-            """从爆款文章库随机抽取完整范文，总量不超限"""
-            import random
-            samples = []
-            total_chars = 0
-    
-            for author in ["半佛仙人", "香港S叔"]:
-                try:
-                    params = {
-                        "filterByFormula": f'{{来源}} = "{author}"',
-                        "pageSize": 50,
-                    }
-                    result = self.db._request("GET", "爆款文章库", params=params)
-                    records = result.get("records", [])
-                    if records:
-                        valid = [r for r in records if r.get("fields", {}).get("正文", "")]
-                        if valid:
-                            random.shuffle(valid)
-                            added = 0
-                            for r in valid:
-                                if added >= count_per_author:
-                                    break
-                                fields = r.get("fields", {})
-                                title = fields.get("标题", "")
-                                body = fields.get("正文", "")
-                                if total_chars + len(body) > total_max_chars:
-                                    continue
-                                samples.append(f"--- 范文（{author}）---\n标题：{title}\n正文：\n{body}")
-                                total_chars += len(body)
-                                added += 1
-                except Exception as e:
-                    print(f"⚠️ 获取{author}范文失败: {e}")
-    
-            if not samples:
-                return "（暂无范文数据）"
-    
-            return "\n\n".join(samples)
+        """从爆款文章库随机抽取完整范文，总量不超限"""
+        samples = []
+        total_chars = 0
+
+        for author in ["半佛仙人", "香港S叔"]:
+            try:
+                params = {
+                    "filterByFormula": f'{{来源}} = "{author}"',
+                    "pageSize": 50,
+                }
+                result = self.db._request("GET", "爆款文章库", params=params)
+                records = result.get("records", [])
+                if records:
+                    valid = [r for r in records if r.get("fields", {}).get("正文", "")]
+                    if valid:
+                        random.shuffle(valid)
+                        added = 0
+                        for r in valid:
+                            if added >= count_per_author:
+                                break
+                            fields = r.get("fields", {})
+                            title = fields.get("标题", "")
+                            body = fields.get("正文", "")
+                            if total_chars + len(body) > total_max_chars:
+                                continue
+                            samples.append(f"--- 范文（{author}）---\n标题：{title}\n正文：\n{body}")
+                            total_chars += len(body)
+                            added += 1
+            except Exception as e:
+                print(f"⚠️ 获取{author}范文失败: {e}")
+
+        if not samples:
+            return "（暂无范文数据）"
+
+        return "\n\n".join(samples)
+
+    def _get_stylebooks(self, book_type="style") -> str:
+        """从Airtable获取写作手册"""
+        if book_type == "style":
+            authors = ["半佛仙人", "香港S叔"]
+        else:
+            authors = ["刘润", "武志红"]
+
+        books = []
+        for author in authors:
+            try:
+                params = {
+                    "filterByFormula": f'AND(FIND("stylebook_{author}", {{版本号}}) > 0, {{状态}} = "写作手册")',
+                    "sort[0][field]": "创建时间",
+                    "sort[0][direction]": "desc",
+                    "maxRecords": 1
+                }
+                result = self.db._request("GET", "prompts", params=params)
+                records = result.get("records", [])
+                if records:
+                    content = records[0]["fields"].get("Prompt内容", "")
+                    if content:
+                        books.append(f"--- {author} ---\n{content}")
+            except Exception as e:
+                print(f"⚠️ 获取{author}手册失败: {e}")
+
+        if not books:
+            return "（手册尚未生成，请先运行 extract_stylebook.py）"
+
+        return "\n\n".join(books)
+
     def save_new_version(self, evolution_notes: str = "") -> str:
         """保存新版本Prompt到Airtable"""
         prompt, pattern_count = self.build_prompt()
