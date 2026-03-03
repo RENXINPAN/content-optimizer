@@ -49,7 +49,10 @@ def call_coze_bot(bot_id, message, timeout=60):
                 break
             try:
                 event = json.loads(data_str)
-                all_events.append(event)
+                if isinstance(event, dict):
+                    all_events.append(event)
+                else:
+                    print(f"  DEBUG 非dict event: {type(event)} {str(event)[:100]}")
             except json.JSONDecodeError:
                 continue
 
