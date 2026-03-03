@@ -87,10 +87,31 @@ def parse_json_response(text):
     if clean.startswith("```"):
         clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
         clean = clean.rsplit("```", 1)[0]
+    clean = clean.strip()
+
+    # 先尝试直接解析
     try:
-        return json.loads(clean.strip()), None
-    except json.JSONDecodeError as e:
-        return None, f"JSON解析失败: {e}, 原文: {text[:200]}"
+        return json.loads(clean), None
+    except json.JSONDecodeError:
+        pass
+
+    # 如果失败，尝试提取第一个完整的JSON对象
+    brace_count = 0
+    start = None
+    for i, ch in enumerate(clean):
+        if ch == '{':
+            if start is None:
+                start = i
+            brace_count += 1
+        elif ch == '}':
+            brace_count -= 1
+            if brace_count == 0 and start is not None:
+                try:
+                    return json.loads(clean[start:i+1]), None
+                except json.JSONDecodeError as e:
+                    return None, f"JSON解析失败: {e}, 原文: {text[:200]}"
+
+    return None, f"未找到完整JSON, 原文: {text[:200]}"
 
 
 def review_content(title, content):
