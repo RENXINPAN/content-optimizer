@@ -97,7 +97,8 @@ def review_content(title, content):
     message = f"审核\n\n标题：{title}\n\n正文：\n{content[:3000]}"
     reply, error = call_coze_bot(bot_id, message)
 
-    print(f"  DEBUG Coze原始回复: {repr(reply)[:300]}")
+    print(f"  DEBUG reply={repr(reply)[:200]}")
+    print(f"  DEBUG error={repr(error)[:200]}")
 
     if error:
         return {"score": 0, "passed": False, "review_notes": f"审核调用失败: {error}"}
