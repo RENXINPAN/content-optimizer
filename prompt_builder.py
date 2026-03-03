@@ -20,6 +20,9 @@ class PromptBuilder:
 
 【从爆款数据中学到的写作规律】
 {learned_patterns}
+【风格范文参考】
+以下是你需要学习和模仿的写作风格，请深度模仿这些文章的语感、节奏、句式和表达方式：
+{sample_articles}
 
 【今日生成要求】
 日期：{date}
@@ -45,9 +48,11 @@ class PromptBuilder:
         learned_text = self._format_patterns(weighted_patterns)
         requirements = self._build_requirements(weighted_patterns)
         season_note = self._get_season_note()
+        sample_text = self._get_sample_articles()
 
         prompt = self.BASE_PROMPT.format(
             learned_patterns=learned_text,
+            sample_articles=sample_text,
             date=datetime.now().strftime("%Y年%m月%d日"),
             season_note=season_note,
             specific_requirements=requirements
@@ -137,7 +142,43 @@ class PromptBuilder:
             12: "年终，年度复盘、总结、计划"
         }
         return notes.get(month, "普通时期")
-
+    def _get_sample_articles(self, count_per_author=2, total_max_chars=20000) -> str:
+            """从爆款文章库随机抽取完整范文，总量不超限"""
+            import random
+            samples = []
+            total_chars = 0
+    
+            for author in ["半佛仙人", "香港S叔"]:
+                try:
+                    params = {
+                        "filterByFormula": f'{{来源}} = "{author}"',
+                        "pageSize": 50,
+                    }
+                    result = self.db._request("GET", "爆款文章库", params=params)
+                    records = result.get("records", [])
+                    if records:
+                        valid = [r for r in records if r.get("fields", {}).get("正文", "")]
+                        if valid:
+                            random.shuffle(valid)
+                            added = 0
+                            for r in valid:
+                                if added >= count_per_author:
+                                    break
+                                fields = r.get("fields", {})
+                                title = fields.get("标题", "")
+                                body = fields.get("正文", "")
+                                if total_chars + len(body) > total_max_chars:
+                                    continue
+                                samples.append(f"--- 范文（{author}）---\n标题：{title}\n正文：\n{body}")
+                                total_chars += len(body)
+                                added += 1
+                except Exception as e:
+                    print(f"⚠️ 获取{author}范文失败: {e}")
+    
+            if not samples:
+                return "（暂无范文数据）"
+    
+            return "\n\n".join(samples)
     def save_new_version(self, evolution_notes: str = "") -> str:
         """保存新版本Prompt到Airtable"""
         prompt, pattern_count = self.build_prompt()
