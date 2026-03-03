@@ -155,6 +155,7 @@ def call_qwen(prompt, max_tokens=4000):
 
 def get_articles_by_author(author, limit=500):
     """从Airtable获取指定作者的所有文章"""
+    print(f"  正在获取{author}的文章...", flush=True)
     db = AirtableClient()
     all_records = []
     offset = None
@@ -344,6 +345,7 @@ def extract_one_author(author):
 
 
 def main():
+    print("🚀 脚本启动...", flush=True)
     all_authors = STYLE_AUTHORS + KNOWLEDGE_AUTHORS
 
     if len(sys.argv) > 1:
