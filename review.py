@@ -74,7 +74,7 @@ def call_coze_bot(bot_id, message, timeout=60):
             )
             check_data = check_resp.json()
             status = check_data.get("data", {}).get("status", "")
-            print(f"  DEBUG 轮询第{i+1}次, status={status}")
+            print(f"  DEBUG 轮询第{i+1}次: {check_resp.text[:500]}")
 
             if status == "completed":
                 # 第三步：获取完整回复
@@ -86,7 +86,7 @@ def call_coze_bot(bot_id, message, timeout=60):
                     timeout=30
                 )
                 msg_data = msg_resp.json()
-                print(f"  DEBUG msg_resp: status={msg_resp.status_code} body={msg_resp.text[:500]}")
+                print(f"  DEBUG msg_resp full: {msg_resp.text}")
                 messages = msg_data.get("data", [])
                 for msg in messages:
                     if msg.get("role") == "assistant" and msg.get("type") == "answer":
