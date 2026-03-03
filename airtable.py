@@ -13,7 +13,7 @@ class AirtableClient:
         self.base_url = f"https://api.airtable.com/v0/{self.base_id}"
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json; charset=utf-8"
         }
 
     def _request(self, method, table, data=None, params=None, record_id=None):
