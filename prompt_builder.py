@@ -20,6 +20,9 @@ class PromptBuilder:
 3. 绝对不能出现虚假署名、虚假栏目名、虚假期数（如"第87篇原创""联合解构"）
 4. 绝对不能用"第一步""第二步""第三步"这种教科书框架
 5. 绝对不能用"我们发现""研究表明""数据显示"这类学术腔
+6. 绝对不能出现虚假期数、虚假直播预告、虚假栏目名（如"第1724篇原创""今晚8点直播间"）
+7. 绝对不能超过1800字，1200-1500字最佳，写完就停，不要注水
+8. 案例最多2个，不要堆砌，讲透一个比蜻蜓点水五个强
 
 【你的写作DNA】
 - 你说人话，不端着，不装专家
@@ -113,51 +116,14 @@ class PromptBuilder:
 
     def _build_requirements(self, patterns: dict) -> str:
         """根据规律生成具体写作要求"""
-        requirements = []
-
-        # 标题要求
-        title_req = "1. 标题要有强烈吸引力"
-        if "标题含数字" in patterns and patterns["标题含数字"]["weighted_confidence"] > 0.5:
-            title_req = "1. 标题必须含数字（如：3个方法、5年经验、90%的人）"
-        requirements.append(title_req)
-
-        # 字数要求
-        length_req = "2. 正文1500-2000字"
-        if "最优正文字数" in patterns:
-            details = patterns["最优正文字数"].get("details", {})
-            avg = details.get("avg_length", 1800)
-            length_req = f"2. 正文字数控制在{int(avg*0.85)}-{int(avg*1.15)}字（基于爆款数据）"
-        requirements.append(length_req)
-
-        # 开头要求
-        opening_req = "3. 开头要能引发读者共鸣，让人觉得'说的就是我'"
-        if "最优开头类型" in patterns:
-            details = patterns["最优开头类型"].get("details", {})
-            best_type = details.get("best_type", "")
-            if best_type:
-                opening_req = f"3. 开头使用{best_type}（数据显示这类开头效果最好）"
-        requirements.append(opening_req)
-
-        # 情绪要求
-        emotion_req = "4. 内容要有情感共鸣，不能太干燥"
-        if "最优情绪类型" in patterns:
-            details = patterns["最优情绪类型"].get("details", {})
-            best_type = details.get("best_type", "")
-            if best_type:
-                emotion_req = f"4. 情绪基调以{best_type}为主（效果最佳）"
-        requirements.append(emotion_req)
-
-        # 结尾要求
-        cta_req = "5. 结尾引导读者评论互动"
-        if "结尾互动引导" in patterns and patterns["结尾互动引导"]["weighted_confidence"] > 0.6:
-            cta_req = "5. 结尾必须加互动引导（爆款文章100%有此结构）"
-        requirements.append(cta_req)
-
-        # 通用要求
-        requirements.append("6. 有真实案例和具体数据，避免空洞说教")
-        requirements.append("7. 不做任何广告或购买引导")
-
-        return "\n".join(requirements)
+        return """1. 写给一个深夜还在刷手机的朋友，不是写给学生的教材
+2. 你不是老师，你是那个也踩过坑、也迷茫过的人，只是想明白了一点点
+3. 开头不要铺垫，第一句就把人拽进来——一个画面、一句扎心的话、一个反常识的判断
+4. 全文只讲一个核心观点，用一个故事或案例讲透，不要贪多
+5. 段落要短，三四行就换，给读者喘气的空间
+6. 不要总结、不要升华、不要喊口号，结尾留一个让人自己去想的东西
+7. 语气像发微信语音，不像写报告——可以用"你""我""说实话""讲真"
+8. 如果用案例，用"我一个朋友""前同事""上周见了个人"这种说法，真实自然"""
 
     def _get_season_note(self) -> str:
         """根据当前月份返回季节提示"""
