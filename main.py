@@ -76,16 +76,43 @@ def generate_daily_content():
 
 
 def parse_generated_content(content: str) -> tuple:
-    """解析千问返回的内容"""
+    """解析千问返回的内容，支持三标题格式"""
     import re
-    title = re.search(r'【标题】\s*(.+?)(?:\n|【)', content + '【')
+    
+    # 尝试解析三标题格式
+    title_a = re.search(r'【标题A】\s*(.+?)(?:\n|【)', content + '【')
+    title_b = re.search(r'【标题B】\s*(.+?)(?:\n|【)', content + '【')
+    title_c = re.search(r'【标题C】\s*(.+?)(?:\n|【)', content + '【')
+    
+    # 优先取标题B（情绪型），其次A，其次C，最后兜底旧格式
+    if title_b:
+        title = title_b.group(1).strip()
+    elif title_a:
+        title = title_a.group(1).strip()
+    elif title_c:
+        title = title_c.group(1).strip()
+    else:
+        # 兼容旧格式
+        old_title = re.search(r'【标题】\s*(.+?)(?:\n|【)', content + '【')
+        title = old_title.group(1).strip() if old_title else "今日内容"
+    
+    # 三个标题都存下来，放正文最前面方便你挑
+    all_titles = []
+    if title_a:
+        all_titles.append(f"备选标题A（悬念）：{title_a.group(1).strip()}")
+    if title_b:
+        all_titles.append(f"备选标题B（情绪）：{title_b.group(1).strip()}")
+    if title_c:
+        all_titles.append(f"备选标题C（故事）：{title_c.group(1).strip()}")
+    title_block = "\n".join(all_titles) + "\n\n---\n\n" if all_titles else ""
+    
     body_match = re.search(r'【正文】\s*(.*?)(?=【封面文字】|$)', content, re.DOTALL)
     cover = re.search(r'【封面文字】\s*(.+?)(?:\n|$)', content)
-
-    title = title.group(1).strip() if title else "今日内容"
+    
     body = body_match.group(1).strip() if body_match else content
+    body = title_block + body  # 把三个标题放正文开头
     cover_text = cover.group(1).strip() if cover else "点击阅读"
-
+    
     return title, body, cover_text
 
 
