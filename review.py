@@ -287,6 +287,9 @@ def run_review():
             print(f"  意见: {notes[:100]}")
 
             if passed:
+                # 润色一遍
+                print(f"  ✨ 润色中...")
+                title, content = polish_content(title, content)
                 at.update_record("contents", record_id, {
                     "标题": title,
                     "正文": content,
