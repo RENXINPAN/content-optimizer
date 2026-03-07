@@ -21,8 +21,8 @@ def generate_daily_content():
 
     db = AirtableClient()
     builder = PromptBuilder()
-    qwen_key = os.environ.get("QWEN_API_KEY")
-
+    qwen_key = os.environ.get("OPENROUTER_API_KEY")
+    
     # 1. 获取当前最优Prompt
     current_prompt_record = db.get_current_prompt()
     if current_prompt_record:
@@ -38,13 +38,13 @@ def generate_daily_content():
     print("🤖 调用千问生成内容...")
     try:
         resp = requests.post(
-            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {qwen_key}",
                 "Content-Type": "application/json"
             },
             json={
-                "model": "qwen-plus",
+                "model": "anthropic/claude-sonnet-4.6",
                 "messages": [{"role": "user", "content": prompt}]
             },
             timeout=60
