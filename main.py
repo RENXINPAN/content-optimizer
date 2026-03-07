@@ -13,7 +13,7 @@ from feedback import FeedbackProcessor
 from memory import MemoryManager
 
 
-def generate_daily_content():
+def generate_daily_content(custom_topic=None):
     """每日内容生成主流程"""
     print(f"\n{'='*50}")
     print(f"🚀 每日内容生成 - {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -31,7 +31,7 @@ def generate_daily_content():
         print(f"📋 使用Prompt版本：{version}")
     else:
         print("📋 首次运行，构建初始Prompt...")
-        prompt, _ = builder.build_prompt()
+        prompt, _ = builder.build_prompt(custom_topic=custom_topic)
         version = "v_init"
 
     # 2. 调用千问生成内容
@@ -239,8 +239,9 @@ if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else "help"
 
     if command == "generate":
-        # GitHub Actions每日触发
-        generate_daily_content()
+        # GitHub Actions每日触发，支持指定主题
+        topic = sys.argv[2] if len(sys.argv) > 2 else None
+        generate_daily_content(topic)
 
     elif command == "evolve":
         # GitHub Actions每周触发
