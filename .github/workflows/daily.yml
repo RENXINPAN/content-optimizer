@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: '0 1 * * *'   # UTC 01:00 = 北京时间 09:00
   workflow_dispatch:
+    inputs:
+      topic:
+        description: '指定主题（留空则随机）'
+        required: false
+        default: ''
 
 jobs:
   generate-and-review:
@@ -25,7 +30,12 @@ jobs:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
           AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: python main.py generate
+        run: |
+          if [ -n "${{ github.event.inputs.topic }}" ]; then
+            python main.py generate "${{ github.event.inputs.topic }}"
+          else
+            python main.py generate
+          fi
 
       - name: AI审核+自动重写+通知
         env:
