@@ -206,7 +206,55 @@ def notify_wechat(title, desp):
     except Exception as e:
         print(f"Server酱失败: {e}")
 
+def polish_content(title, content):
+    """审核通过后，再润色一遍"""
+    api_key = os.environ.get("QWEN_API_KEY")
+    if not api_key:
+        return title, content
 
+    prompt = f"""你是一个资深编辑。以下是一篇已通过审核的公众号文章，请做最后一轮润色：
+
+【要求】
+1. 如果出现超过两个独立场景，砍到一个主场景
+2. 如果出现妈妈打电话问瘦没瘦、煮面/煮粥结尾、用植物比喻人生，直接删掉换别的写法
+3. 如果出现"我没接话""我没应声""我没回头"超过一次，只保留一次，其余换成正常人的反应
+4. 对话逻辑是否通顺，如果有跳跃就修复
+5. 结尾如果重复表达同一个意思，只保留最有力的一句
+6. 不要改变文章的核心观点和风格，只做减法和修复
+7. 控制在1200-1500字
+
+【标题】{title}
+【正文】{content}
+
+返回格式（只返回JSON）：
+{{"title": "润色后的标题", "content": "润色后的正文"}}"""
+
+    try:
+        resp = requests.post(
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json; charset=utf-8"
+            },
+            json={
+                "model": "qwen-plus",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3,
+            },
+            timeout=60
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        reply = data["choices"][0]["message"]["content"]
+        result, error = parse_json_response(reply)
+        if error:
+            print(f"  润色解析失败: {error}")
+            return title, content
+        return result.get("title", title), result.get("content", content)
+    except Exception as e:
+        print(f"  润色失败: {e}")
+        return title, content
+        
 def run_review():
     at = AirtableClient()
     records = at.get_records("contents", filter_formula='{status}="待审核"')
