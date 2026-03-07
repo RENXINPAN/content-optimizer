@@ -8,6 +8,7 @@ import time
 import requests
 from datetime import datetime
 from airtable import AirtableClient
+from editor_handbook import EDITOR_HANDBOOK
 
 MAX_REWRITE_ROUNDS = 3
 
@@ -207,33 +208,22 @@ def notify_wechat(title, desp):
         print(f"Server酱失败: {e}")
 
 def polish_content(title, content):
-    """审核通过后，再润色一遍"""
+    """审核通过后，用编辑手册润色一遍"""
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         return title, content
 
-    prompt = f"""你是一个顶级公众号主编，擅长把好文章变成10万+的爆款。以下文章质量已经不错，请在保持风格不变的前提下做最后一轮优化：
+    prompt = f"""{EDITOR_HANDBOOK}
 
-【你的任务】
-1. 找到文章的核心观点，让它更锐利——如果原文说得含糊，帮它说清楚；如果说得太绕，帮它说直接
-2. 检查有没有一句能让人截图转发的话——如果没有，在合适的位置自然地加一句，不要硬造
-3. 开头前三句是否有吸引力——如果平淡，调整一下让人想继续读
-4. 结尾是否有力——读者读完要能清楚知道这篇在说什么，一句实在的话收住
-5. 删掉所有不为核心观点服务的段落——再好的细节，如果和主线无关，也要砍
-6. 全文控制在800-1200字
-
-【绝对不要做的事】
-- 不要改变文章的人称和语气风格
-- 不要加鸡汤、口号、排比升华
-- 不要加"你应该""记住""重要的是"这类说教
-- 不要加妈妈打电话、煮面、植物比喻等桥段
-- 不要出现"我没接话""我没应声"这类装酷句式
+【现在请润色以下文章】
 
 【原标题】{title}
 【原正文】{content}
 
-返回格式（只返回JSON）：
-{{"title": "优化后的标题", "content": "优化后的正文"}}"""
+请按照编辑手册的标准，完成七步润色，然后输出最终版本。
+
+返回格式（只返回JSON，不要返回其他任何内容）：
+{{"title": "润色后的标题", "content": "润色后的正文"}}"""
 
     try:
         resp = requests.post(
@@ -247,7 +237,7 @@ def polish_content(title, content):
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.3,
             },
-            timeout=60
+            timeout=120
         )
         resp.raise_for_status()
         data = resp.json()
