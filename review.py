@@ -139,11 +139,11 @@ def review_content(title, content):
 
 
 def rewrite_content(title, content, review_notes):
-    api_key = os.environ.get("QWEN_API_KEY")
+    api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         return None, None, "QWEN_API_KEY未配置"
 
-    url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+    url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -170,7 +170,7 @@ def rewrite_content(title, content, review_notes):
 {{"title": "修改后的标题", "content": "修改后的正文"}}"""
 
     payload = {
-        "model": "qwen-plus",
+        "model": "anthropic/claude-sonnet-4.6",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
     }
@@ -208,7 +208,7 @@ def notify_wechat(title, desp):
 
 def polish_content(title, content):
     """审核通过后，再润色一遍"""
-    api_key = os.environ.get("QWEN_API_KEY")
+    api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         return title, content
 
@@ -231,13 +231,13 @@ def polish_content(title, content):
 
     try:
         resp = requests.post(
-            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json; charset=utf-8"
             },
             json={
-                "model": "qwen-plus",
+                "model": "anthropic/claude-sonnet-4.6",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.3,
             },
