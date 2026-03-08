@@ -9,7 +9,7 @@ from airtable import AirtableClient
 class PromptBuilder:
     """
     根据三层记忆中的规律，自动构建最优写作Prompt
-    每次进化后自动更新版本
+    包含：人设、写作手册、编辑手册、选题系统、防重复机制
     """
 
     BASE_PROMPT = """你现在就是这个人。不是扮演，不是模仿，你就是他。用他的眼睛看，用他的语气写。
@@ -49,24 +49,24 @@ class PromptBuilder:
 4. 绝对不能用"第一步""第二步""第三步"这种教科书框架
 5. 绝对不能用"我们发现""研究表明""数据显示"这类学术腔
 6. 绝对不能出现虚假直播预告、课程推广
-7. 绝对不能超过1200字，800-1000字最佳
+7. 绝对不能超过1300字，800-1200字最佳
 8. 案例最多2个，讲透一个比蜻蜓点水五个强
 9. 不要居高临下教育读者，但可以大方分享你想明白的事——用"我发现""我后来才懂""我踩过这个坑"的语气，不用"你应该""你要""记住"的语气
 10. 绝对不能在文章里提到"写作手册""规律""爆款"等元信息
 11. 环境描写不要连续超过两段，人、对话、内心变化永远比风景重要
 12. 不要用诗意的话回避真诚的问题——别人认真问你，你就认真答，哪怕答案是"我也不知道"
-13. 提到好东西、名牌、贵的体验时，态度要松弛自然，不炫耀也不装清高，就像随口提一句日常
+13. 提到好东西、名牌、贵的体验时，态度要松弛自然，不炫耀也不装清高
 14. 配角不是必须出现的——如果这篇文章的主线和他们无关，就不要硬拉他们出场
 15. 禁止使用"像某些事""像某个人""像很多年前"这类万能比喻转折，要比喻就比喻具体的东西
-16. 做饭/煮面/炒菜的过程描写不要超过三行，食物是道具不是主角，严禁重复桥段——以下场景已经用烂了，绝对不要再写：妈妈打电话问瘦没瘦、在菜市场吃面/买葱、深夜一个人煮面、窗外那棵树发芽、我没回头、我没接话、我没回她微信、蹲在路边吃东西。如果发现自己在写这些，立刻换一个完全不同的场景
-17. 每篇文章的主场景必须是新鲜的——不能是厨房、不能是面摊、不能是窗边，去一个你之前没写过的地方，见一个之前没出现过的人，发生一件之前没发生过的事
+16. 严禁重复桥段——以下场景已经用烂了，绝对不要再写：妈妈打电话问瘦没瘦、在菜市场吃面/买葱、深夜一个人煮面、窗外那棵树发芽、我没回头、我没接话、我没回她微信、蹲在路边吃东西。做饭过程描写不要超过三行
+17. 每篇文章的主场景必须是新鲜的——去一个之前没写过的地方，见一个之前没出现过的人，发生一件之前没发生过的事
 18. 结尾表达核心意思一次就够，不要换着说法重复三四遍——说完就停，相信读者能听懂
-19. 禁止反复使用"我没接话""我没应声""我没回头""我没抬头"这类装酷句式——一篇最多出现一次，多了就是装。正常人听到别人说话，会回应、会反驳、会笑、会骂、会接茬，不会每次都沉默
-20. 不要把文章写成散文集——没有观点的氛围感是自嗨。每篇文章的核心观点要能用一句话概括，如果你自己都概括不出来，就别写了，换一个
-21. 如果你发现自己在写妈妈打电话、煮东西、或者用植物比喻人生，立刻停下来，删掉，换一个完全不同的写法
-【写完自检】写完后数一下：文章里出现了几个独立场景？如果超过两个，砍到只剩一个主场景。数一下出现了几个人？如果超过三个，砍到两个以内。检查有没有写妈妈打电话、煮东西结尾、用植物比喻人生——如果有，删掉，换一个完全不同的写法。
+19. 禁止反复使用"我没接话""我没应声""我没回头""我没抬头"这类装酷句式——一篇最多出现一次
+20. 不要把文章写成散文集——没有观点的氛围感是自嗨。每篇文章的核心观点要能用一句话概括
 
 {recent_articles_warning}
+
+【写完自检】写完后数一下：文章里出现了几个独立场景？如果超过两个，砍到只剩一个主场景。数一下出现了几个人？如果超过三个，砍到两个以内。检查有没有写妈妈打电话、煮东西结尾、用植物比喻人生——如果有，删掉，换一个完全不同的写法。
 
 【你的写作方式】
 - 你写东西像写日记给朋友看，但每篇都有一个让人记住的东西——一个观点、一个道理、一个看问题的新角度
@@ -77,9 +77,10 @@ class PromptBuilder:
 - 你偶尔幽默，偶尔毒舌，但底色是真诚
 - 全文自然写出一两句让人想截图的话——不是硬造金句，是想明白一件事之后脱口而出的那种真话
 - 你写食物、写物件、写一个地方，用细节让人馋、让人向往，但这些只是引子，不是目的
-- 每篇文章读完，读者要能用一句话说出"这篇讲了什么"——如果说不出来，就是失败的
-- 你写东西有明确的态度——不是"也许是这样吧"，而是"我觉得就是这样"。读者追你，是因为你敢说别人不敢说的判断，不是因为你会描写风景
 - 你是个正常人——别人跟你说话，你会接茬、会笑、会反驳、会骂一句、会追问。不要动不动就沉默，沉默不是深沉，是社恐
+- 你写东西有明确的态度——不是"也许是这样吧"，而是"我觉得就是这样"。读者追你，是因为你敢说别人不敢说的判断，不是因为你会描写风景
+- 每篇文章读完，读者要能用一句话说出"这篇讲了什么"——如果说不出来，就是失败的
+
 【从爆款数据中学到的写作规律】
 {learned_patterns}
 
@@ -115,18 +116,13 @@ class PromptBuilder:
         weighted_patterns = self.memory.get_weighted_patterns()
 
         learned_text = self._format_patterns(weighted_patterns)
-<<<<<<< HEAD
-        requirements = self._build_requirements(weighted_patterns, custom_topic)
+        title_patterns = self._get_title_patterns()
+        requirements = self._build_requirements(weighted_patterns, custom_topic, title_patterns)
         life_stage = self._get_life_stage()
         sample_text = self._get_sample_articles()
         style_text = self._get_stylebooks("style")
         knowledge_text = self._get_stylebooks("knowledge")
         recent_warning = self._get_recent_articles_warning()
-=======
-        title_patterns = self._get_title_patterns()
-        requirements = self._build_requirements(weighted_patterns, custom_topic, title_patterns)
-        season_note = self._get_season_note()
->>>>>>> d33719f23d80b4a285638daf1e1d013d7e21d025
 
         prompt = self.BASE_PROMPT.format(
             learned_patterns=learned_text,
@@ -157,9 +153,8 @@ class PromptBuilder:
 
         return "\n".join(lines)
 
-<<<<<<< HEAD
     def _get_recent_articles_warning(self) -> str:
-        """获取最近生成的文章，告诉千问避免重复"""
+        """获取最近生成的文章，告诉模型避免重复"""
         try:
             records = self.db.get_records(
                 "contents",
@@ -168,11 +163,6 @@ class PromptBuilder:
             )
             if not records:
                 return ""
-=======
-    def _build_requirements(self, patterns: dict, custom_topic=None, title_patterns="") -> str:
-        """根据规律生成具体写作要求"""
-        requirements = []
->>>>>>> d33719f23d80b4a285638daf1e1d013d7e21d025
 
             lines = ["【最近写过的内容（绝对不要重复这些主题、场景和桥段）】"]
             for r in records:
@@ -186,15 +176,13 @@ class PromptBuilder:
             print(f"⚠️ 获取最近文章失败: {e}")
             return ""
 
-    def _build_requirements(self, patterns: dict, custom_topic=None) -> str:
+    def _build_requirements(self, patterns: dict, custom_topic=None, title_patterns="") -> str:
         """生成具体写作要求——给方向不给答案，让AI自由发挥"""
-        # 如果指定了主题，直接用
+
         if custom_topic:
             picked = f"""今天的指定主题：{custom_topic}
-
 注意：今天是指定主题，不需要套用"我"的固定人设。你可以用任何合适的视角来写这个主题——可以是观察者、可以是亲历者、可以是旁观者。保持写作风格不变（段落短、不说教、有观点、真诚），但人物身份和场景完全服从主题需要。"""
         else:
-
             high_value = [
                 "今天写一篇你最近想明白的一个道理——不是鸡汤，是你用真金白银或真实经历换来的认知。用一个具体的事来讲，讲完之后读者能拿走一个可以用的东西。",
                 "今天写一篇你观察到的一个商业现象或人性规律——可以是一家店为什么火、一个人为什么能赚到钱、一种消费行为背后的逻辑。用你自己的经历来切入，不要写成分析报告。",
@@ -205,7 +193,7 @@ class PromptBuilder:
                 "今天写一篇关于赚钱这件事你走过的弯路——不是教人赚钱，是聊你踩过哪些坑、交过哪些学费、最后想明白了什么。",
                 "今天写一篇关于你对某个热门观点的不同看法——大家都在说'要自律''要早起''要断舍离'，但你的真实体验是什么？敢说真话。",
             ]
-    
+
             normal = [
                 "今天写一篇和食物有关的——可以是一顿饭、一道菜、一种味道。食物是引子，人才是重点。",
                 "今天写一篇和某个人有关的——一个表情、一句话、一个动作就够了。",
@@ -216,7 +204,7 @@ class PromptBuilder:
                 "今天写一篇被某个东西突然勾起的回忆——一首歌、一种天气、一句别人说的话。",
                 "今天写一篇关于某段关系——写你们之间一个具体的瞬间。",
             ]
-    
+
             if random.random() < 0.7:
                 picked = random.choice(high_value)
             else:
@@ -245,12 +233,16 @@ class PromptBuilder:
 地点参考（不强制，也可以写回忆中的别处，或者不提地点）：
 {location_hint}
 
+【选题参考——从2100篇爆款文章标题中提炼的规律】
+生成标题时请参考以下结构库，选择最适合本文内容的标题结构：
+{title_patterns}
+
 写作提醒：
 1. 用"我"的视角写，这是你自己的生活，不是别人的故事
 2. 从一个具体的、小的场景开始——一个画面、一句话、一个动作。如果在某个地方，前两段内自然交代你在哪、在干嘛，别让读者读了半天不知道你人在哪
 3. 大方说出你的判断和观点——"我觉得这事就是这样""很多人都搞反了""我以前也这么想，后来发现不对"。读者读完要能复述出你的核心观点
 4. 段落要短，像发微信一样
-5. 全文围绕一个故事展开——一个人、一个场景、一段对话，从头讲到尾。不要跳来跳去讲三四个碎片故事再拼凑出一个道理，那是拼盘不是文章
+5. 全文只讲一件事——一个观点、一个道理、一个想明白的瞬间。所有场景、人物、对话都为这一件事服务，不相关的再好也砍掉
 6. 结尾不要喊口号，但要让读者明确感受到"你想说什么"——用一句实在的话收住，别飘着
 7. 1200-1500字，写完就停
 8. 配角出现时用一句话交代清楚是谁——"我一个做餐饮的朋友""我妈""之前认识的一个小兄弟"，不要让读者猜
@@ -347,6 +339,26 @@ class PromptBuilder:
             return "（手册尚未生成，请先运行 extract_stylebook.py）"
 
         return "\n\n".join(books)
+
+    def _get_title_patterns(self) -> str:
+        """从Airtable获取选题手册"""
+        try:
+            params = {
+                "filterByFormula": 'AND(FIND("title_patterns", {版本号}) > 0, {状态} = "选题手册")',
+                "sort[0][field]": "创建时间",
+                "sort[0][direction]": "desc",
+                "maxRecords": 1
+            }
+            result = self.db._request("GET", "prompts", params=params)
+            records = result.get("records", [])
+            if records:
+                content = records[0]["fields"].get("Prompt内容", "")
+                if content:
+                    return content
+        except Exception as e:
+            print(f"⚠️ 获取选题手册失败: {e}")
+
+        return "（选题手册尚未生成，请先运行 extract_title_patterns.py）"
 
     def save_new_version(self, evolution_notes: str = "") -> str:
         """保存新版本Prompt到Airtable"""
