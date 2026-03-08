@@ -43,7 +43,8 @@ class PromptBuilder:
         weighted_patterns = self.memory.get_weighted_patterns()
 
         learned_text = self._format_patterns(weighted_patterns)
-        requirements = self._build_requirements(weighted_patterns)
+        title_patterns = self._get_title_patterns()
+        requirements = self._build_requirements(weighted_patterns, custom_topic, title_patterns)
         season_note = self._get_season_note()
 
         prompt = self.BASE_PROMPT.format(
@@ -71,7 +72,7 @@ class PromptBuilder:
 
         return "\n".join(lines)
 
-    def _build_requirements(self, patterns: dict) -> str:
+    def _build_requirements(self, patterns: dict, custom_topic=None, title_patterns="") -> str:
         """根据规律生成具体写作要求"""
         requirements = []
 
