@@ -26,23 +26,19 @@ class EvolutionEngine:
         """执行一次进化"""
         print(f"\n🧬 开始进化 [{layer}记忆层]...")
 
-        articles = self.db.get_articles_with_scores(
-            limit=10 if layer == "短期" else 50 if layer == "中期" else 200
+        articles = self.db.get_all_articles(
+            limit=10 if layer == "短期" else 50 if layer == "中期" else 5000
         )
-
+        
         if len(articles) < 5:
             print("⚠️  数据不足5篇，跳过进化")
             return
-
-        # 分离爆款和普通文章
-        viral = [a for a in articles if a["fields"].get("综合分数", 0) >= self.viral_threshold]
-        normal = [a for a in articles if a["fields"].get("综合分数", 0) < self.viral_threshold]
-
-        print(f"📊 爆款文章：{len(viral)}篇，普通文章：{len(normal)}篇")
-
-        if len(viral) < 3:
-            print("⚠️  爆款文章少于3篇，进化意义不大，跳过")
-            return
+        
+        # 所有文章都当爆款处理
+        viral = articles
+        normal = []
+        
+        print(f"📊 分析文章：{len(viral)}篇")
 
         # 提炼规律
         patterns = self._extract_patterns(viral, normal, layer)
@@ -70,7 +66,7 @@ class EvolutionEngine:
 
         # ---- 规律1：标题特征 ----
         viral_number_rate = viral_features["title"]["has_number"]
-        normal_number_rate = normal_features["title"]["has_number"]
+        normal_number_rate = normal_features["title"].get("has_number", 0)
         if viral_number_rate - normal_number_rate > 0.2:
             confidence = min((viral_number_rate - normal_number_rate) * len(viral) / 10, 1.0)
             patterns.append({
@@ -153,7 +149,7 @@ class EvolutionEngine:
 
         # ---- 规律5：结尾互动引导 ----
         viral_cta_rate = viral_features["structure"]["has_cta"]
-        normal_cta_rate = normal_features["structure"]["has_cta"]
+        normal_cta_rate = normal_features["structure"].get("has_cta", 0)
         if viral_cta_rate - normal_cta_rate > 0.15:
             patterns.append({
                 "type": "结尾互动引导",

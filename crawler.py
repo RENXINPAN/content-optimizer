@@ -17,7 +17,7 @@ BASE_URL = "https://www.dajiala.com/fbmain/monitor/v3"
 
 TARGET_ACCOUNTS = [
     "刘润",
-    "S叔Spenser",
+    "香港S叔",
     "武志红",
     "半佛仙人",
 ]
@@ -71,6 +71,7 @@ def extract_content(detail: dict) -> str:
     return ""
 
 def crawl_account(account_name: str, max_articles: int = 50):
+
     print(f"\n📡 开始抓取：{account_name}")
     ingestion = ArticleIngestion()
     count = 0
@@ -80,7 +81,7 @@ def crawl_account(account_name: str, max_articles: int = 50):
         print(f"  第{page}页...")
         articles = get_article_list(account_name, page)
         if not articles:
-            print(f"  第{page}页无数据，停止")
+            print(f"  第{page}页无数据，停止，已抓{count}篇")
             break
 
         for article in articles:
@@ -100,8 +101,15 @@ def crawl_account(account_name: str, max_articles: int = 50):
                 continue
 
             print(f"  📄 {title[:35]}...")
-
-        
+            # URL去重检查
+            # URL去重检查
+            try:
+                existing = ingestion.db._request("GET", "爆款文章库", params={"filterByFormula": f'{{url}}="{article_url}"'})
+                if existing.get("records"):
+                    print(f"  ⏭️  已存在，跳过")
+                    continue
+            except Exception:
+                pass
 
             detail = get_article_detail(article_url)
             content = extract_content(detail)
@@ -117,7 +125,8 @@ def crawl_account(account_name: str, max_articles: int = 50):
                 ingestion.ingest(
                     title=title,
                     content=content,
-                    source=f"{account_name}"
+                    source=f"{account_name}",
+                    url=article_url
                 )
                 count += 1
                 print(f"  ✅ 已入库（{count}/{max_articles}）")
@@ -127,7 +136,7 @@ def crawl_account(account_name: str, max_articles: int = 50):
             time.sleep(0.8)
 
         page += 1
-        if page > 20:  # 最多翻20页防止无限循环
+        if page > 200:  # 最多翻20页防止无限循环
             break
         time.sleep(1)
 
