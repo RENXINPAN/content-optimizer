@@ -115,12 +115,18 @@ class PromptBuilder:
         weighted_patterns = self.memory.get_weighted_patterns()
 
         learned_text = self._format_patterns(weighted_patterns)
+<<<<<<< HEAD
         requirements = self._build_requirements(weighted_patterns, custom_topic)
         life_stage = self._get_life_stage()
         sample_text = self._get_sample_articles()
         style_text = self._get_stylebooks("style")
         knowledge_text = self._get_stylebooks("knowledge")
         recent_warning = self._get_recent_articles_warning()
+=======
+        title_patterns = self._get_title_patterns()
+        requirements = self._build_requirements(weighted_patterns, custom_topic, title_patterns)
+        season_note = self._get_season_note()
+>>>>>>> d33719f23d80b4a285638daf1e1d013d7e21d025
 
         prompt = self.BASE_PROMPT.format(
             learned_patterns=learned_text,
@@ -151,6 +157,7 @@ class PromptBuilder:
 
         return "\n".join(lines)
 
+<<<<<<< HEAD
     def _get_recent_articles_warning(self) -> str:
         """获取最近生成的文章，告诉千问避免重复"""
         try:
@@ -161,6 +168,11 @@ class PromptBuilder:
             )
             if not records:
                 return ""
+=======
+    def _build_requirements(self, patterns: dict, custom_topic=None, title_patterns="") -> str:
+        """根据规律生成具体写作要求"""
+        requirements = []
+>>>>>>> d33719f23d80b4a285638daf1e1d013d7e21d025
 
             lines = ["【最近写过的内容（绝对不要重复这些主题、场景和桥段）】"]
             for r in records:
