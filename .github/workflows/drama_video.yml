@@ -1,0 +1,94 @@
+name: Drama Video Pipeline
+
+on:
+  # 每天北京时间 10:00 (UTC 02:00) — 与 daily.yml 错开
+  # 默认关闭定时，手动取消注释启用
+  # schedule:
+  #   - cron: '0 2 * * *'
+
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      custom_topic:
+        description: '指定主题（留空=自动选题）'
+        required: false
+        default: ''
+        type: string
+      video_id:
+        description: '断点续传的 Video ID（留空=新建）'
+        required: false
+        default: ''
+        type: string
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+  AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+  SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+  OUTPUT_DIR: drama_output
+
+jobs:
+  produce-drama-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+
+      - name: Install Python deps
+        run: |
+          pip install requests edge-tts aiohttp
+
+      - name: Run pipeline
+        id: pipeline
+        run: |
+          if [ -n "${{ github.event.inputs.video_id }}" ]; then
+            python drama_main.py resume "${{ github.event.inputs.video_id }}"
+          elif [ -n "${{ github.event.inputs.custom_topic }}" ]; then
+            python drama_main.py generate "${{ github.event.inputs.custom_topic }}"
+          else
+            python drama_main.py generate
+          fi
+
+      - name: Upload video artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drama-video-${{ steps.pipeline.outputs.video_id || 'output' }}
+          path: |
+            drama_output/video/**/*.mp4
+            drama_output/video/**/*.ass
+          retention-days: 7
+
+      - name: Upload pipeline data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drama-data-${{ steps.pipeline.outputs.video_id || 'output' }}
+          path: |
+            drama_output/*/01_topic.json
+            drama_output/*/02_script.json
+            drama_output/*/06_video.json
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🎬 短剧视频生产结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Video ID**: ${{ steps.pipeline.outputs.video_id || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **状态**: ${{ steps.pipeline.outputs.pipeline_status || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **触发**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **时间**: $(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')" >> $GITHUB_STEP_SUMMARY
