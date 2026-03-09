@@ -8,7 +8,7 @@ drama_main.py - AI短剧文学视频生产主调度器
     python drama_main.py topic_only             # 只生成选题（调试用）
 
 流程:
-    选题 → AI写短剧(200-400字) → 拆镜头(6-8个) → Flux生图 → Edge-TTS配音
+    选题 → AI写短剧(150-200字) → 拆镜头(6-8个) → Flux生图 → Edge-TTS配音
     → FFmpeg合成视频 → 存Airtable → Server酱通知
 """
 import os
@@ -34,7 +34,7 @@ AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "apphDOxCslstliiKO")
 SERVERCHAN_KEY = os.getenv("SERVERCHAN_KEY", "")
 
 # 模型配置
-LLM_MODEL = "anthropic/claude-sonnet-4-20250514"
+LLM_MODEL = "anthropic/claude-sonnet-4.6"
 IMAGE_MODEL = "black-forest-labs/flux.2-pro"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -328,7 +328,7 @@ def step_topic(video_id, custom_topic=None):
 SCRIPT_PROMPT = """你是一个擅长创作治愈系短视频文案的编剧。
 
 ## 任务
-根据以下选题，撰写一段200-400字的短剧旁白文案。这段文案将配合6-8张唯美卡通图片，制作成抖音图片轮播视频。
+根据以下选题，撰写一段150-200字的短剧旁白文案。这段文案将配合6-8张唯美卡通图片，制作成抖音图片轮播视频。
 
 ## 选题信息
 - 标题：{title}
@@ -338,7 +338,7 @@ SCRIPT_PROMPT = """你是一个擅长创作治愈系短视频文案的编剧。
 - 主场景：{target_scene}
 
 ## 写作要求
-1. 字数严格控制在200-400字
+1. 字数严格控制在150-200字
 2. 结构：开头吸引（金句/问句）→ 中间展开（故事/画面）→ 结尾升华（感悟/金句）
 3. 语言风格：
    - 口语化，像朋友在耳边轻声讲述
