@@ -35,7 +35,7 @@ SERVERCHAN_KEY = os.getenv("SERVERCHAN_KEY", "")
 
 # 模型配置
 LLM_MODEL = "anthropic/claude-sonnet-4-20250514"
-IMAGE_MODEL = "black-forest-labs/flux-1.1-pro"
+IMAGE_MODEL = "black-forest-labs/flux.2-pro"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Airtable 表名（新建表，不影响现有表）
@@ -328,7 +328,7 @@ def step_topic(video_id, custom_topic=None):
 SCRIPT_PROMPT = """你是一个擅长创作治愈系短视频文案的编剧。
 
 ## 任务
-根据以下选题，撰写一段150-300字的短剧旁白文案。这段文案将配合6-8张唯美卡通图片，制作成抖音图片轮播视频。
+根据以下选题，撰写一段200-400字的短剧旁白文案。这段文案将配合6-8张唯美卡通图片，制作成抖音图片轮播视频。
 
 ## 选题信息
 - 标题：{title}
@@ -338,7 +338,7 @@ SCRIPT_PROMPT = """你是一个擅长创作治愈系短视频文案的编剧。
 - 主场景：{target_scene}
 
 ## 写作要求
-1. 字数严格控制在150-300字
+1. 字数严格控制在200-400字
 2. 结构：开头吸引（金句/问句）→ 中间展开（故事/画面）→ 结尾升华（感悟/金句）
 3. 语言风格：
    - 口语化，像朋友在耳边轻声讲述
@@ -460,7 +460,11 @@ def step_shots(video_id):
 # ============================================================
 
 def generate_single_image(flux_prompt, output_path, max_retries=3):
-    """调用 Flux via OpenRouter 生成单张图片"""
+    """调用 Flux via OpenRouter 生成单张图片
+    
+    OpenRouter 图片生成走 /chat/completions 端点，需要 modalities: ["image"]
+    返回的图片是 base64 data URL 格式，在 assistant message content 中
+    """
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
@@ -469,32 +473,49 @@ def generate_single_image(flux_prompt, output_path, max_retries=3):
     }
     payload = {
         "model": IMAGE_MODEL,
-        "prompt": flux_prompt,
-        "n": 1,
-        "width": VIDEO_WIDTH,
-        "height": VIDEO_HEIGHT,
+        "messages": [
+            {"role": "user", "content": flux_prompt}
+        ],
+        "modalities": ["image"],
+        "max_tokens": 4096,
     }
 
     for attempt in range(max_retries):
         try:
             resp = requests.post(
-                f"{OPENROUTER_BASE_URL}/images/generations",
+                f"{OPENROUTER_BASE_URL}/chat/completions",
                 headers=headers, json=payload, timeout=180
             )
             resp.raise_for_status()
             data = resp.json()
-            img = data.get("data", [{}])[0]
 
-            if "b64_json" in img:
-                with open(output_path, "wb") as f:
-                    f.write(base64.b64decode(img["b64_json"]))
-            elif "url" in img:
-                img_resp = requests.get(img["url"], timeout=60)
-                img_resp.raise_for_status()
-                with open(output_path, "wb") as f:
-                    f.write(img_resp.content)
+            # 从 assistant message 中提取 base64 图片
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            
+            # content 可能是字符串(data URL)或数组
+            img_data = None
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "image_url":
+                        img_data = block.get("image_url", {}).get("url", "")
+                        break
+                    elif isinstance(block, dict) and block.get("type") == "image":
+                        img_data = block.get("url", "") or block.get("data", "")
+                        break
+            elif isinstance(content, str) and "base64" in content:
+                img_data = content
+
+            if not img_data:
+                raise ValueError(f"未找到图片数据，响应: {json.dumps(data, ensure_ascii=False)[:500]}")
+
+            # 解析 base64 data URL: "data:image/png;base64,xxxxx"
+            if img_data.startswith("data:"):
+                b64_str = img_data.split(",", 1)[1]
             else:
-                raise ValueError(f"未知图片格式: {list(img.keys())}")
+                b64_str = img_data
+
+            with open(output_path, "wb") as f:
+                f.write(base64.b64decode(b64_str))
 
             return output_path
         except Exception as e:
