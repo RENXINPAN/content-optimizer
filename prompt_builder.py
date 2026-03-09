@@ -5,6 +5,7 @@ import random
 from datetime import datetime
 from memory import MemoryManager
 from airtable import AirtableClient
+from hot_topics import get_hot_topics_text
 
 class PromptBuilder:
     """
@@ -96,6 +97,9 @@ class PromptBuilder:
 这是你脑子里的知识，需要时自然调用，不需要时绝对不要硬塞：
 {knowledge_base}
 
+【今日热点参考（不强制使用，如果某个热点和你的创作方向相关，可以自然融入）】
+{hot_topics}
+
 【今日写作】
 日期：{date}
 {specific_requirements}
@@ -123,8 +127,10 @@ class PromptBuilder:
         style_text = self._get_stylebooks("style")
         knowledge_text = self._get_stylebooks("knowledge")
         recent_warning = self._get_recent_articles_warning()
+        hot_topics = get_hot_topics_text(limit=10)
 
         prompt = self.BASE_PROMPT.format(
+            hot_topics=hot_topics,
             learned_patterns=learned_text,
             sample_articles=sample_text,
             style_handbook=style_text,
