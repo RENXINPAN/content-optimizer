@@ -52,7 +52,7 @@ jobs:
 
       - name: Install Python deps
         run: |
-          pip install requests edge-tts aiohttp
+          pip install requests aiohttp
 
       - name: Run pipeline
         id: pipeline
