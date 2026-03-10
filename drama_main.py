@@ -180,6 +180,12 @@ def parse_json_response(text):
     try:
         return json.loads(text)
     except json.JSONDecodeError:
+        # 尝试修复：script字段中的换行符可能导致JSON解析失败
+        try:
+            fixed = re.sub(r'(?<!\\)\n', '\\n', text)
+            return json.loads(fixed)
+        except json.JSONDecodeError:
+            pass
         match = re.search(r'\{[\s\S]*\}', text)
         if match:
             try:
