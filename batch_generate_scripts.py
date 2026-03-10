@@ -145,6 +145,42 @@ def parse_json_array(text):
         raise ValueError(f"无法解析 JSON 数组:\n{text[:500]}")
 
 
+POLISH_PROMPT = """你是一个顶级短视频文案编辑。
+下面是一段抖音情绪短视频文案初稿，请你精修润色。
+
+要求：
+1. 保持原文主题和情绪不变
+2. 字数控制在 130-160 字
+3. 每句 6-18 字，口语化，不要文学腔
+4. 句子节奏要有呼吸感，短句和稍长句交替
+5. 开头第一句要有吸引力
+6. 结尾要有一句让人想截图转发的金句
+7. 去掉任何鸡汤感、说教感
+8. 段落之间用换行分隔
+
+初稿：
+{script}
+
+只输出润色后的文案，不要任何解释。"""
+
+
+def polish_script(script_text, max_retries=2):
+    """单条文案润色"""
+    prompt = POLISH_PROMPT.format(script=script_text)
+    try:
+        result = call_llm(prompt, max_retries=max_retries)
+        result = result.strip()
+        # 去掉可能的引号包裹
+        if result.startswith('"') and result.endswith('"'):
+            result = result[1:-1]
+        clean = re.sub(r'\s+', '', result)
+        if len(clean) < 50:
+            return script_text  # 润色结果太短，用原稿
+        return result
+    except Exception as e:
+        log(f"  润色失败，使用原稿: {e}")
+        return script_text
+        
 def write_to_airtable(records):
     """批量写入 Airtable（每次最多10条）"""
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{SCRIPT_TABLE}"
@@ -254,6 +290,17 @@ def batch_generate(total_count=100, dry_run=False):
             all_titles.append(title)
 
         log(f"✅ 本轮有效文案: {len(valid_scripts)}/{len(scripts)}")
+
+        # 逐条润色
+        if valid_scripts:
+            log(f"✨ 开始润色 {len(valid_scripts)} 条文案...")
+            for j, s in enumerate(valid_scripts):
+                log(f"  润色 {j+1}/{len(valid_scripts)}: {s['title']}")
+                original_wc = len(re.sub(r'\s+', '', s['script']))
+                s['script'] = polish_script(s['script'])
+                polished_wc = len(re.sub(r'\s+', '', s['script']))
+                log(f"  ✅ {original_wc}字 → {polished_wc}字")
+                time.sleep(2)  # 限流保护
 
         for s in valid_scripts:
             clean = re.sub(r'\s+', '', s['script'])
