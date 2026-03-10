@@ -1,0 +1,43 @@
+name: Batch Generate Drama Scripts
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '生成文案数量'
+        required: false
+        default: '100'
+        type: string
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+  AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+
+jobs:
+  generate-scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Generate scripts
+        run: python batch_generate_scripts.py ${{ github.event.inputs.count }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📝 文案批量生成完成" >> $GITHUB_STEP_SUMMARY
+          echo "- **目标数量**: ${{ github.event.inputs.count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **时间**: $(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')" >> $GITHUB_STEP_SUMMARY
+          echo "- 请到 Airtable drama_scripts 表查看结果" >> $GITHUB_STEP_SUMMARY
