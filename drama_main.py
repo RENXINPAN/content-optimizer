@@ -34,7 +34,7 @@ AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "apphDOxCslstliiKO")
 SERVERCHAN_KEY = os.getenv("SERVERCHAN_KEY", "")
 
 # 模型配置
-LLM_MODEL = "anthropic/claude-sonnet-4-20250514"
+LLM_MODEL = "anthropic/claude-sonnet-4.6"
 IMAGE_MODEL = "black-forest-labs/flux.2-pro"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
