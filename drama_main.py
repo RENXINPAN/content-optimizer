@@ -8,7 +8,7 @@ drama_main.py - AI短剧文学视频生产主调度器
     python drama_main.py topic_only             # 只生成选题（调试用）
 
 流程:
-    选题 → AI写短剧(150-200字) → 拆镜头(6-8个) → Flux生图 → Edge-TTS配音
+    选题 → AI写短剧(200-400字) → 拆镜头(6-8个) → Flux生图 → Edge-TTS配音
     → FFmpeg合成视频 → 存Airtable → Server酱通知
 """
 import os
@@ -34,7 +34,7 @@ AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "apphDOxCslstliiKO")
 SERVERCHAN_KEY = os.getenv("SERVERCHAN_KEY", "")
 
 # 模型配置
-LLM_MODEL = "anthropic/claude-sonnet-4.6"
+LLM_MODEL = "anthropic/claude-sonnet-4-20250514"
 IMAGE_MODEL = "black-forest-labs/flux.2-pro"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -463,7 +463,7 @@ def generate_single_image(flux_prompt, output_path, max_retries=3):
     """调用 Flux via OpenRouter 生成单张图片
     
     OpenRouter 图片生成走 /chat/completions 端点，需要 modalities: ["image"]
-    返回的图片是 base64 data URL 格式，在 assistant message content 中
+    返回格式: message.images[].image_url.url = "data:image/png;base64,..."
     """
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -488,25 +488,27 @@ def generate_single_image(flux_prompt, output_path, max_retries=3):
             )
             resp.raise_for_status()
             data = resp.json()
+            message = data.get("choices", [{}])[0].get("message", {})
 
-            # 从 assistant message 中提取 base64 图片
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            
-            # content 可能是字符串(data URL)或数组
+            # OpenRouter Flux 返回图片在 message.images 数组中
             img_data = None
-            if isinstance(content, list):
-                for block in content:
-                    if isinstance(block, dict) and block.get("type") == "image_url":
-                        img_data = block.get("image_url", {}).get("url", "")
-                        break
-                    elif isinstance(block, dict) and block.get("type") == "image":
-                        img_data = block.get("url", "") or block.get("data", "")
-                        break
-            elif isinstance(content, str) and "base64" in content:
-                img_data = content
+            images = message.get("images", [])
+            if images:
+                img_data = images[0].get("image_url", {}).get("url", "")
+
+            # 兜底：也检查 content（其他模型可能放这里）
+            if not img_data:
+                content = message.get("content", "")
+                if isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict) and block.get("type") == "image_url":
+                            img_data = block.get("image_url", {}).get("url", "")
+                            break
+                elif isinstance(content, str) and "base64" in content:
+                    img_data = content
 
             if not img_data:
-                raise ValueError(f"未找到图片数据，响应: {json.dumps(data, ensure_ascii=False)[:500]}")
+                raise ValueError(f"未找到图片数据，响应keys: {list(message.keys())}")
 
             # 解析 base64 data URL: "data:image/png;base64,xxxxx"
             if img_data.startswith("data:"):
