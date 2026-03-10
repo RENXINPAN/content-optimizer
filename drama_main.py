@@ -782,7 +782,9 @@ def step_video(video_id):
     else:
         audio_map = f"{audio_idx}:a"
 
-    filter_complex += f";\n[slideshow]ass='{sub_path}'[final]"
+    # ASS 路径需要对 FFmpeg filter 转义（冒号和反斜杠）
+    escaped_sub = sub_path.replace("\\", "\\\\").replace(":", "\\:")
+    filter_complex += f";\n[slideshow]ass='{escaped_sub}'[final]"
 
     cmd.extend([
         "-filter_complex", filter_complex,
@@ -796,9 +798,16 @@ def step_video(video_id):
 
     log("合成", f"执行 FFmpeg ({n} 个镜头)...")
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    
+    # 打印 FFmpeg 关键信息（方便调试字幕/图片问题）
+    if result.stderr:
+        key_lines = [l for l in result.stderr.split('\n') 
+                     if any(k in l.lower() for k in ['error', 'warning', 'ass', 'font', 'input #', 'output #'])]
+        if key_lines:
+            log("合成", f"FFmpeg 关键信息:\n" + "\n".join(key_lines[-10:]))
+    
     if result.returncode != 0:
         log("合成", f"❌ FFmpeg 错误:\n{result.stderr[-500:]}")
-        raise RuntimeError(f"FFmpeg 失败")
 
     output_path = os.path.join(video_dir, f"{video_id}_final.mp4")
 
