@@ -23,7 +23,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY", "")
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "apphDOxCslstliiKO")
 
-LLM_MODEL = "anthropic/claude-sonnet-4.6"
+LLM_MODEL = "openai/gpt-5.3-chat"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 SCRIPT_TABLE = "drama_scripts"
 
