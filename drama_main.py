@@ -51,8 +51,8 @@ MIN_SHOTS = 6
 MAX_SHOTS = 8
 
 # 配音参数 (Edge-TTS)
-TTS_VOICE = "zh-CN-YunxiNeural"
-TTS_RATE = "-15%"
+TTS_VOICE = "zh-CN-XiaoyiNeural"
+TTS_RATE = "-5%"
 
 # 字幕参数
 SUBTITLE_FONTSIZE = 42
@@ -238,6 +238,45 @@ class DramaAirtable:
         if resp.status_code != 200:
             return []
         return [r["fields"] for r in resp.json().get("records", [])]
+
+
+class ScriptTable:
+    """drama_scripts 表：读取用户预写的文案"""
+
+    SCRIPT_TABLE = "drama_scripts"
+
+    def __init__(self):
+        self.base_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{self.SCRIPT_TABLE}"
+        self.headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+            "Content-Type": "application/json; charset=utf-8"
+        }
+
+    def get_next_script(self):
+        """取第一条 status=待使用 的记录，返回 (record_id, fields) 或 None"""
+        params = {
+            "maxRecords": 1,
+            "filterByFormula": "{status}='待使用'",
+        }
+        resp = requests.get(self.base_url, headers=self.headers, params=params, timeout=30)
+        if resp.status_code != 200:
+            log("ScriptTable", f"查询失败: {resp.status_code} {resp.text[:200]}")
+            return None
+        records = resp.json().get("records", [])
+        if not records:
+            return None
+        return records[0]["id"], records[0]["fields"]
+
+    def mark_used(self, record_id):
+        """标记为已使用"""
+        resp = requests.patch(
+            self.base_url,
+            headers=self.headers,
+            json={"records": [{"id": record_id, "fields": {"status": "已使用"}}]},
+            timeout=30
+        )
+        resp.raise_for_status()
+        log("ScriptTable", f"已标记为已使用: {record_id}")
 
 
 # ============================================================
@@ -723,93 +762,141 @@ def step_video(video_id):
     video_dir = os.path.join(OUTPUT_DIR, "video", video_id)
     os.makedirs(video_dir, exist_ok=True)
 
-    # 字幕
-    sub_path = os.path.join(video_dir, "subtitles.ass")
-    generate_ass_subtitle(shots, sub_path)
+    # ---- 1. 生成 SRT 字幕（比 ASS 兼容性更好）----
+    srt_path = os.path.join(video_dir, "subtitles.srt")
+    cum_ms = 0
+    srt_idx = 1
+    srt_lines = []
+    for shot in shots:
+        dur_ms = shot.get("audio_duration_ms", shot.get("duration_sec", 5) * 1000)
+        text = shot.get("subtitle_text", "").strip()
+        if not text:
+            cum_ms += dur_ms
+            continue
+        text = text.replace("[停顿]", "")
+        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+        # SRT 时间格式
+        def ms_to_srt(ms):
+            h = int(ms // 3600000)
+            m = int((ms % 3600000) // 60000)
+            s = int((ms % 60000) // 1000)
+            ms_r = int(ms % 1000)
+            return f"{h:02d}:{m:02d}:{s:02d},{ms_r:03d}"
+        # 每15字换行
+        display_lines = []
+        line = ""
+        for ch in text:
+            line += ch
+            if len(line) >= 15 and ch in "，。！？、；：":
+                display_lines.append(line)
+                line = ""
+        if line:
+            display_lines.append(line)
+        srt_lines.append(f"{srt_idx}")
+        srt_lines.append(f"{ms_to_srt(cum_ms)} --> {ms_to_srt(cum_ms + dur_ms)}")
+        srt_lines.append("\n".join(display_lines))
+        srt_lines.append("")
+        srt_idx += 1
+        cum_ms += dur_ms
 
-    # BGM
-    bgm_path = None
-    if os.path.exists(BGM_DIR):
-        bgm_files = glob.glob(os.path.join(BGM_DIR, "*.mp3"))
-        if bgm_files:
-            bgm_path = random.choice(bgm_files)
-            log("合成", f"BGM: {os.path.basename(bgm_path)}")
+    with open(srt_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(srt_lines))
+    log("合成", f"字幕: {srt_idx - 1} 条")
 
-    # 构建 FFmpeg 命令
+    # ---- 2. 每张图片单独生成视频片段，然后拼接 ----
     valid_shots = [s for s in shots if s.get("image_path") and os.path.exists(s["image_path"])]
     n = len(valid_shots)
     if n == 0:
         raise ValueError("没有可用图片！")
 
-    inputs = []
-    filter_parts = []
+    segment_files = []
     for i, shot in enumerate(valid_shots):
         dur = shot.get("duration_sec", 5)
-        inputs.extend(["-loop", "1", "-t", str(dur), "-i", shot["image_path"]])
+        seg_path = os.path.join(video_dir, f"seg_{i:02d}.mp4")
+        segment_files.append(seg_path)
 
-        # Ken Burns 效果
-        frames = int(dur * VIDEO_FPS)
-        if i % 3 == 0:
-            zoom = f"zoompan=z='min(zoom+0.0008,1.08)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={VIDEO_WIDTH}x{VIDEO_HEIGHT}:fps={VIDEO_FPS}"
-        elif i % 3 == 1:
-            zoom = f"zoompan=z='1.05':x='if(eq(on,1),0,x+1)':y='ih/2-(ih/zoom/2)':d={frames}:s={VIDEO_WIDTH}x{VIDEO_HEIGHT}:fps={VIDEO_FPS}"
+        # 简单方案：图片缩放到目标尺寸 + 淡入淡出
+        cmd_seg = [
+            "ffmpeg", "-y",
+            "-loop", "1", "-t", str(dur),
+            "-i", shot["image_path"],
+            "-vf", (
+                f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,"
+                f"pad={VIDEO_WIDTH}:{VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black,"
+                f"fade=t=in:st=0:d={TRANSITION_SEC},"
+                f"fade=t=out:st={dur - TRANSITION_SEC}:d={TRANSITION_SEC}"
+            ),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-pix_fmt", "yuv420p",
+            "-r", str(VIDEO_FPS),
+            seg_path
+        ]
+        seg_result = subprocess.run(cmd_seg, capture_output=True, text=True, timeout=60)
+        if seg_result.returncode != 0:
+            log("合成", f"⚠️ 片段 {i} 失败: {seg_result.stderr[-200:]}")
         else:
-            zoom = f"zoompan=z='if(eq(on,1),1.08,max(zoom-0.0008,1.0))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={VIDEO_WIDTH}x{VIDEO_HEIGHT}:fps={VIDEO_FPS}"
+            log("合成", f"片段 {i+1}/{n} ✅ ({dur}s)")
 
-        filter_parts.append(
-            f"[{i}:v]{zoom},"
-            f"fade=t=in:st=0:d={TRANSITION_SEC}:alpha=1,"
-            f"fade=t=out:st={dur - TRANSITION_SEC}:d={TRANSITION_SEC}:alpha=1,"
-            f"setpts=PTS-STARTPTS[v{i}]"
-        )
+    # 成功的片段
+    segment_files = [f for f in segment_files if os.path.exists(f)]
+    if not segment_files:
+        raise ValueError("所有片段生成失败！")
 
-    concat_in = "".join(f"[v{i}]" for i in range(n))
-    filter_parts.append(f"{concat_in}concat=n={n}:v=1:a=0[slideshow]")
+    # ---- 3. 用 concat 拼接所有片段 ----
+    concat_list = os.path.join(video_dir, "concat.txt")
+    with open(concat_list, "w") as f:
+        for seg in segment_files:
+            f.write(f"file '{os.path.abspath(seg)}'\n")
 
-    filter_complex = ";\n".join(filter_parts)
-
-    cmd = ["ffmpeg", "-y"] + inputs
-    audio_idx = n
-    cmd.extend(["-i", full_audio])
-
-    if bgm_path:
-        cmd.extend(["-i", bgm_path])
-        bgm_idx = n + 1
-        filter_complex += f";\n[{audio_idx}:a]aformat=sample_rates=44100:channel_layouts=mono[narration]"
-        filter_complex += f";\n[{bgm_idx}:a]aformat=sample_rates=44100:channel_layouts=mono,volume={BGM_VOLUME}[bgm]"
-        filter_complex += f";\n[narration][bgm]amix=inputs=2:duration=first:dropout_transition=3[mixed]"
-        audio_map = "[mixed]"
-    else:
-        audio_map = f"{audio_idx}:a"
-
-    # ASS 路径需要对 FFmpeg filter 转义（冒号和反斜杠）
-    escaped_sub = sub_path.replace("\\", "\\\\").replace(":", "\\:")
-    filter_complex += f";\n[slideshow]ass='{escaped_sub}'[final]"
-
-    cmd.extend([
-        "-filter_complex", filter_complex,
-        "-map", "[final]", "-map", audio_map,
-        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "192k",
+    no_sub_path = os.path.join(video_dir, f"{video_id}_nosub.mp4")
+    cmd_concat = [
+        "ffmpeg", "-y",
+        "-f", "concat", "-safe", "0",
+        "-i", concat_list,
+        "-i", full_audio,
+        "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
         "-shortest", "-movflags", "+faststart",
-        os.path.join(video_dir, f"{video_id}_final.mp4")
-    ])
+        no_sub_path
+    ]
+    concat_result = subprocess.run(cmd_concat, capture_output=True, text=True, timeout=120)
+    if concat_result.returncode != 0:
+        log("合成", f"❌ 拼接失败: {concat_result.stderr[-300:]}")
+        raise RuntimeError("拼接失败")
+    log("合成", "拼接完成 ✅")
 
-    log("合成", f"执行 FFmpeg ({n} 个镜头)...")
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-    
-    # 打印 FFmpeg 关键信息（方便调试字幕/图片问题）
-    if result.stderr:
-        key_lines = [l for l in result.stderr.split('\n') 
-                     if any(k in l.lower() for k in ['error', 'warning', 'ass', 'font', 'input #', 'output #'])]
-        if key_lines:
-            log("合成", f"FFmpeg 关键信息:\n" + "\n".join(key_lines[-10:]))
-    
-    if result.returncode != 0:
-        log("合成", f"❌ FFmpeg 错误:\n{result.stderr[-500:]}")
-
+    # ---- 4. 烧录字幕 ----
     output_path = os.path.join(video_dir, f"{video_id}_final.mp4")
+    # 用 subtitles filter + force_style，不依赖系统字体名
+    escaped_srt = srt_path.replace("\\", "/").replace(":", "\\:")
+    sub_style = "FontSize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Shadow=1,MarginV=60"
+    cmd_sub = [
+        "ffmpeg", "-y",
+        "-i", no_sub_path,
+        "-vf", f"subtitles='{escaped_srt}':force_style='{sub_style}'",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+        "-c:a", "copy",
+        "-movflags", "+faststart",
+        output_path
+    ]
+    sub_result = subprocess.run(cmd_sub, capture_output=True, text=True, timeout=120)
+    if sub_result.returncode != 0:
+        log("合成", f"⚠️ 字幕烧录失败，使用无字幕版本: {sub_result.stderr[-300:]}")
+        # fallback: 用无字幕版本
+        import shutil
+        shutil.copy2(no_sub_path, output_path)
+    else:
+        log("合成", "字幕烧录 ✅")
+
+    # 清理临时片段
+    for seg in segment_files:
+        try:
+            os.remove(seg)
+        except:
+            pass
+    try:
+        os.remove(no_sub_path)
+    except:
+        pass
 
     # 获取视频信息
     probe = subprocess.run(
@@ -911,15 +998,59 @@ def run_pipeline(video_id=None, custom_topic=None, start_from=None):
         log("Pipeline", f"   指定主题: {custom_topic}")
     log("Pipeline", "=" * 60)
 
-    # 确定起始步骤（断点续传）
+    # ---- 优先从 drama_scripts 表取预写文案 ----
+    use_prewritten = False
+    script_record_id = None
+    if not start_from and not custom_topic:
+        try:
+            st = ScriptTable()
+            result = st.get_next_script()
+            if result:
+                script_record_id, script_fields = result
+                log("Pipeline", f"📋 从 drama_scripts 表取到文案: {script_fields.get('title', 'N/A')}")
+                # 直接构造 01_topic 和 02_script 的状态，跳过 AI 生成
+                topic_data = {
+                    "video_id": video_id,
+                    "title": script_fields.get("title", ""),
+                    "angle": "",
+                    "emotion": script_fields.get("emotion", "治愈"),
+                }
+                save_state(video_id, "01_topic", topic_data)
+
+                script_text = script_fields.get("script", "")
+                clean = re.sub(r'\s+', '', script_text.replace("[停顿]", ""))
+                script_data = {
+                    "script": script_text,
+                    "word_count": len(clean),
+                    "actual_word_count": len(clean),
+                    "estimated_duration_sec": len(clean) / 4.5,
+                    "topic": topic_data,
+                }
+                save_state(video_id, "02_script", script_data)
+
+                # 标记已使用
+                st.mark_used(script_record_id)
+                use_prewritten = True
+                log("Pipeline", "✅ 选题+剧本已从表中加载，跳过 AI 生成")
+            else:
+                log("Pipeline", "📋 drama_scripts 表无待使用文案，使用 AI 自动生成")
+        except Exception as e:
+            log("Pipeline", f"⚠️ 查询 drama_scripts 失败({e})，使用 AI 自动生成")
+
+    # 确定起始步骤
     start_idx = 0
-    if start_from:
+    if use_prewritten:
+        start_idx = 2  # 跳过 01_topic 和 02_script
+    elif start_from:
         for i, (sid, _, _) in enumerate(PIPELINE_STEPS):
             if sid == start_from or start_from in sid:
                 start_idx = i
                 break
 
     results = {}
+    if use_prewritten:
+        results["01_topic"] = "success (prewritten)"
+        results["02_script"] = "success (prewritten)"
     t0 = time.time()
 
     for i, (step_id, step_name, step_func) in enumerate(PIPELINE_STEPS):
