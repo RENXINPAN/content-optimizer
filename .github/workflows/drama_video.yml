@@ -25,6 +25,7 @@ env:
   AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
   AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
   SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+  FISH_AUDIO_API_KEY: ${{ secrets.FISH_AUDIO_API_KEY }}
   OUTPUT_DIR: drama_output
 
 jobs:
