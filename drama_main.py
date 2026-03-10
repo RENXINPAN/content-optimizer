@@ -32,6 +32,8 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY", "")
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "apphDOxCslstliiKO")
 SERVERCHAN_KEY = os.getenv("SERVERCHAN_KEY", "")
+FISH_AUDIO_API_KEY = os.getenv("FISH_AUDIO_API_KEY", "")
+FISH_AUDIO_VOICE_ID = "e752df7d20cd4576af9a207520349a33"
 
 # 模型配置
 LLM_MODEL = "anthropic/claude-sonnet-4.6"
@@ -613,36 +615,50 @@ def step_images(video_id):
 # ============================================================
 
 async def _tts_segment(text, audio_path, sub_path):
-    """生成单段配音"""
-    import edge_tts
+    """使用 Fish Audio API 生成单段配音"""
     text = re.sub(r'\*([^*]+)\*', r'\1', text)
-    text = text.replace("[停顿]", "。")
-    text = re.sub(r'。+', '。', text).strip()
+    text = text.replace("[停顿]", "，")
+    text = re.sub(r'，+', '，', text).strip()
 
     if os.path.exists(audio_path):
         os.remove(audio_path)
 
-    communicate = edge_tts.Communicate(text, voice=TTS_VOICE, rate=TTS_RATE)
-    subtitles = []
+    # Fish Audio TTS API
+    headers = {
+        "Authorization": f"Bearer {FISH_AUDIO_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "text": text,
+        "reference_id": FISH_AUDIO_VOICE_ID,
+        "format": "mp3",
+    }
 
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            with open(audio_path, "ab") as f:
-                f.write(chunk["data"])
-        elif chunk["type"] == "WordBoundary":
-            subtitles.append({
-                "text": chunk["text"],
-                "offset": chunk["offset"],
-                "duration": chunk["duration"],
-            })
+    resp = requests.post(
+        "https://api.fish.audio/v1/tts",
+        headers=headers,
+        json=payload,
+        timeout=60,
+    )
+    resp.raise_for_status()
 
+    with open(audio_path, "wb") as f:
+        f.write(resp.content)
+
+    # 用 ffprobe 获取音频时长
     duration_ms = 0
-    if subtitles:
-        last = subtitles[-1]
-        duration_ms = (last["offset"] + last["duration"]) / 10000
+    try:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", audio_path],
+            capture_output=True, text=True, timeout=10
+        )
+        if probe.returncode == 0:
+            dur = json.loads(probe.stdout).get("format", {}).get("duration", "0")
+            duration_ms = float(dur) * 1000
+    except Exception:
+        pass
 
     return {"audio_path": audio_path, "duration_ms": duration_ms}
-
 
 async def _generate_all_voice(video_id):
     shots_data = load_state(video_id, "04_images")
@@ -651,38 +667,36 @@ async def _generate_all_voice(video_id):
     audio_dir = os.path.join(OUTPUT_DIR, "audio", video_id)
     os.makedirs(audio_dir, exist_ok=True)
 
-    total_ms = 0
+    # 拼接完整文案，一次性生成配音
+    full_text = ""
     for shot in shots:
-        sn = shot["shot_number"]
         text = shot.get("subtitle_text", "").strip()
-        if not text:
-            continue
+        if text:
+            full_text += text + "。"
 
-        log("配音", f"镜头 {sn}...")
-        audio_path = os.path.join(audio_dir, f"shot_{sn:02d}.mp3")
-        sub_path = os.path.join(audio_dir, f"shot_{sn:02d}.vtt")
+    full_text = re.sub(r'\*([^*]+)\*', r'\1', full_text)
+    full_text = full_text.replace("[停顿]", "，")
+    full_text = re.sub(r'[，。]+', lambda m: m.group()[-1], full_text).strip()
 
-        result = await _tts_segment(text, audio_path, sub_path)
-        shot["audio_path"] = result["audio_path"]
-        shot["audio_duration_ms"] = result["duration_ms"]
-        shot["duration_sec"] = max(3.0, result["duration_ms"] / 1000 + 0.5)
-        total_ms += result["duration_ms"]
-        log("配音", f"✅ 镜头 {sn}: {result['duration_ms']:.0f}ms")
+    log("配音", f"文案总长: {len(full_text)} 字，一次性生成")
 
-    # 合并全部音频
     full_audio = os.path.join(audio_dir, "full_narration.mp3")
-    concat_list = os.path.join(audio_dir, "concat.txt")
-    with open(concat_list, "w") as f:
-        for shot in shots:
-            if shot.get("audio_path") and os.path.exists(shot["audio_path"]):
-                f.write(f"file '{os.path.abspath(shot['audio_path'])}'\n")
+    result = await _tts_segment(full_text, full_audio, "")
 
-    os.system(f'ffmpeg -y -f concat -safe 0 -i "{concat_list}" -c copy "{full_audio}" 2>/dev/null')
+    total_ms = result["duration_ms"]
+    log("配音", f"✅ 配音完成: {total_ms/1000:.1f}s")
+
+    # 按文案长度比例分配每个镜头的时长
+    total_len = sum(len(s.get("subtitle_text", "")) for s in shots) or 1
+    for shot in shots:
+        text_len = len(shot.get("subtitle_text", ""))
+        ratio = text_len / total_len
+        shot["audio_duration_ms"] = total_ms * ratio
+        shot["duration_sec"] = max(3.0, (total_ms * ratio) / 1000)
 
     shots_data["full_audio_path"] = full_audio
     shots_data["total_audio_duration_ms"] = total_ms
     save_state(video_id, "05_voice", shots_data)
-    log("配音", f"总时长: {total_ms/1000:.1f}s")
     return shots_data
 
 
