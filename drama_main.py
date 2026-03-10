@@ -51,8 +51,8 @@ MIN_SHOTS = 6
 MAX_SHOTS = 8
 
 # 配音参数 (Edge-TTS)
-TTS_VOICE = "zh-CN-XiaoyiNeural"
-TTS_RATE = "-5%"
+TTS_VOICE = "zh-CN-YunxiNeural"
+TTS_RATE = "-15%"
 
 # 字幕参数
 SUBTITLE_FONTSIZE = 42
