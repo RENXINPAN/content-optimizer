@@ -46,6 +46,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-noto-cjk
+          fc-cache -fv
+          echo "=== 可用 CJK 字体 ==="
+          fc-list :lang=zh family | sort | head -20
 
       - name: Install Python deps
         run: |
