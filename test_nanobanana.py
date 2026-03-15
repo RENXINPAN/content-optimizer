@@ -56,7 +56,7 @@ The image dimensions should match the original exactly.
 Do NOT change anything else - same background, same ant+coin decoration, same overall composition."""
 
     payload = {
-        "model": "google/gemini-2.5-flash-image",
+        "model": "google/gemini-3.1-flash-image-preview",
         "messages": [
             {
                 "role": "user",
