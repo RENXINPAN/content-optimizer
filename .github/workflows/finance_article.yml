@@ -1,0 +1,71 @@
+name: Finance Article Pipeline
+
+on:
+  # 每天北京时间 8:00 (UTC 00:00)
+  # schedule:
+  #   - cron: '0 0 * * *'
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '操作类型'
+        required: true
+        default: 'generate'
+        type: choice
+        options:
+          - generate
+          - batch_topics
+      count:
+        description: '数量'
+        required: false
+        default: '1'
+        type: string
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+  AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+  SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+  OUTPUT_DIR: finance_output
+
+jobs:
+  run-finance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk
+          pip install requests Pillow
+
+      - name: Run
+        run: |
+          python finance_main.py ${{ github.event.inputs.action }} ${{ github.event.inputs.count }}
+
+      - name: Upload images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finance-images-${{ github.run_number }}
+          path: finance_output/*.png
+          retention-days: 7
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📊 财经图文生成结果" >> $GITHUB_STEP_SUMMARY
+          echo "- **操作**: ${{ github.event.inputs.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **数量**: ${{ github.event.inputs.count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **时间**: $(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')" >> $GITHUB_STEP_SUMMARY
+          IMG_COUNT=$(ls finance_output/*.png 2>/dev/null | wc -l)
+          echo "- **生成图片**: ${IMG_COUNT} 张" >> $GITHUB_STEP_SUMMARY
