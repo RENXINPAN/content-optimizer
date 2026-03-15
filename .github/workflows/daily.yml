@@ -2,8 +2,8 @@
 name: 每日内容生成+审核
 
 on:
-  schedule:
-    - cron: '0 1 * * *'   # UTC 01:00 = 北京时间 09:00
+ # schedule:
+ #   - cron: '0 1 * * *'   # UTC 01:00 = 北京时间 09:00
   workflow_dispatch:
     inputs:
       topic:
