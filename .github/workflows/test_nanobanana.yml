@@ -1,0 +1,40 @@
+name: Test Nano Banana
+
+on:
+  workflow_dispatch:
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  test-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Copy sample images
+        run: |
+          cp templates/sample_vertical.png sample_vertical.png
+          cp templates/sample_horizontal.png sample_horizontal.png
+
+      - name: Run test
+        run: python test_nanobanana.py
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nanobanana-test-results
+          path: test_output/*.png
+          retention-days: 7
